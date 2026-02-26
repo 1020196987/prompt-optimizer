@@ -1,0 +1,1475 @@
+# Prompt Optimizer 学习指南
+
+## 项目概述
+
+Prompt Optimizer 是一个 AI 提示词优化工具，帮助用户编写更好的提示词来提升 AI 输出质量。支持四种使用方式：Web 应用、桌面应用、Chrome 插件、Docker 部署。
+
+---
+
+## 技术栈
+
+| 领域 | 技术 |
+|------|------|
+| 前端框架 | Vue 3 + TypeScript (Composition API) |
+| 构建工具 | Vite + pnpm workspaces |
+| 样式 | TailwindCSS + PostCSS |
+| 测试 | Vitest + Playwright |
+| 桌面端 | Electron (带自动更新) |
+| 国际化 | Vue-i18n |
+| 状态管理 | 响应式 Composables (无 Pinia/Vuex) |
+| UI 组件 | **Naive UI** (优先使用) |
+| 构建工具 | **Vite** |
+
+---
+
+## Vite 启动流程解析
+
+### 项目如何启动
+
+在 `packages/web` 中执行 `pnpm run dev`，实际执行的是 `vite --force`。整个启动流程如下：
+
+```
+packages/web/package.json
+    │
+    ▼ scripts.dev = "vite --force"
+    │
+packages/web/vite.config.ts  ──→ 读取配置
+    │
+    ▼
+packages/web/index.html  ──→ HTML 入口
+    │
+    ▼
+packages/web/src/main.ts  ──→ Vue 应用入口
+    │
+    ▼
+创建 Vue 实例并挂载到 #app
+```
+
+### 核心文件说明
+
+#### 1. vite.config.ts 配置
+
+```typescript
+// packages/web/vite.config.ts
+export default defineConfig(({ mode }) => {
+  const monorepoRoot = resolve(__dirname, '../..')
+  const env = loadEnv(mode, monorepoRoot)
+
+  return {
+    // 环境变量目录（指向 monorepo 根目录）
+    envDir: monorepoRoot,
+
+    // 插件配置
+    plugins: [vue()],
+
+    // 开发服务器配置
+    server: {
+      port: 18181,        // 端口号
+      host: true,         // 监听所有网卡（0.0.0.0）
+      hmr: true,          // 开启热更新
+      watch: {
+        // 监视 monorepo 中其他包的变化
+        ignored: ['!**/node_modules/@prompt-optimizer/**']
+      }
+    },
+
+    // 构建配置
+    build: {
+      rollupOptions: {
+        input: {
+          main: resolve(__dirname, 'index.html')
+        }
+      }
+    },
+
+    // 路径别名
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'src'),
+        '@prompt-optimizer/core': path.resolve(__dirname, '../core'),
+        '@prompt-optimizer/ui': path.resolve(__dirname, '../ui'),
+      }
+    },
+
+    // 预构建依赖
+    optimizeDeps: {
+      include: ['element-plus'],
+    }
+  }
+})
+```
+
+#### 2. index.html 入口
+
+```html
+<!-- packages/web/index.html -->
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- 运行时配置，在应用代码之前加载 -->
+    <script src="/config.js"></script>
+    <title>提示词优化器</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- type="module" 告诉浏览器这是 ES 模块 -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+```
+
+#### 3. main.ts Vue 应用入口
+
+```typescript
+// packages/web/src/main.ts
+import { createApp } from 'vue'
+import { installI18nOnly, installPinia, i18n, router } from '@prompt-optimizer/ui'
+import '@prompt-optimizer/ui/dist/style.css'
+import App from './App.vue'
+
+const app = createApp(App)
+
+// 安装插件
+installI18nOnly(app)  // i18n
+installPinia(app)     // 状态管理
+app.use(router)       // 路由
+
+// 挂载应用
+app.mount('#app')
+```
+
+### Vite 核心概念
+
+#### 1. 开发服务器 (dev server)
+
+Vite 启动一个本地开发服务器，提供以下功能：
+
+| 功能 | 说明 |
+|------|------|
+| **模块热更新 (HMR)** | 修改代码后无需刷新页面即可更新 |
+| **ES 模块原生支持** | 浏览器直接支持 ES 模块导入 |
+| **按需编译** | 只编译当前访问的页面，不用构建整个项目 |
+| **Source Maps** | 调试时可以追踪到原始源码位置 |
+
+#### 2. 入口文件 (index.html)
+
+Vite **默认**会查找项目根目录的 `index.html`，但这是可以配置的。
+
+**默认查找规则**：
+- 根目录的 `index.html`
+- 或者通过 `vite.config.ts` 配置
+
+**配置方式**：
+
+```typescript
+// vite.config.ts
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),      // 主入口
+        nested: resolve(__dirname, 'nested.html'),  // 多页应用的其他入口
+      }
+    }
+  }
+})
+```
+
+**本项目的配置**：
+
+```typescript
+// packages/web/vite.config.ts
+build: {
+  rollupOptions: {
+    input: {
+      main: resolve(__dirname, 'index.html')
+    }
+  }
+}
+```
+
+**index.html 的作用**：
+
+```
+index.html
+    │
+    ▼
+<script type="module" src="/src/main.ts"></script>
+    │
+    ▼
+加载 Vue 应用入口 (main.ts)
+    │
+    ▼
+createApp(App).mount('#app')
+```
+
+**本质**：`index.html` 是 Vite 服务的入口，Vite 会从这个 HTML 开始，按需编译引入的模块。
+
+**关键点**：
+
+| 情况 | 是否需要 index.html |
+|------|-------------------|
+| 单页应用 (SPA) | ✅ 通常需要 |
+| 多页应用 | ✅ 可以有多个 HTML 入口 |
+| 仅构建库 | ❌ 不需要 HTML 文件 |
+
+#### 3. 环境变量
+
+Vite 使用 `VITE_` 前缀定义环境变量：
+
+```typescript
+// 在代码中使用
+console.log(import.meta.env.VITE_OPENAI_API_KEY)
+
+// .env.local 文件示例
+VITE_OPENAI_API_KEY=your_key_here
+```
+
+在本项目中：
+- `envDir: monorepoRoot` 让 Vite 从 monorepo 根目录读取 `.env.local`
+- 这样可以共享同一套环境变量给所有子包
+
+#### 3. 依赖预构建 (optimizeDeps)
+
+首次启动时，Vite 会预构建依赖：
+
+```typescript
+optimizeDeps: {
+  include: ['element-plus'],  // 预构建 Element Plus
+}
+```
+
+预构建的好处：
+- 将 CommonJS 转换为 ESM
+- 合并小模块减少请求数
+- 缓存结果，下次启动更快
+
+#### 4. 路径别名 (resolve.alias)
+
+```typescript
+resolve: {
+  alias: {
+    '@': resolve(__dirname, 'src'),  // @/xxx → src/xxx
+  }
+}
+```
+
+在代码中直接使用：
+```typescript
+import App from '@/App.vue'
+```
+
+#### 5. 生产构建 (build)
+
+```typescript
+build: {
+  rollupOptions: {
+    input: {
+      main: resolve(__dirname, 'index.html')
+    }
+  }
+}
+```
+
+使用 Rollup 进行生产构建，输出到 `dist/` 目录。
+
+### Vite 常用命令
+
+| 命令 | 说明 |
+|------|------|
+| `vite` | 启动开发服务器 |
+| `vite build` | 生产构建 |
+| `vite preview` | 预览生产构建结果 |
+| `vite --force` | 强制重新预构建依赖 |
+
+### 本项目中的 Vite 配置亮点
+
+1. **Monorepo 环境变量共享** - 通过 `envDir` 指向根目录
+2. **跨包监视** - `watch.ignored` 确保修改 `@prompt-optimizer/ui` 时自动重载
+3. **工作区依赖服务** - `fs.allow` 允许为本地包提供服务
+4. **多包别名** - 同时为 core、ui、web、extension 设置别名
+
+---
+
+## pnpm 运行原理详解
+
+### 执行流程
+
+```
+pnpm run dev
+    │
+    ▼
+读取 packages/web/package.json
+    │
+    ▼ scripts.dev = "vite --force"
+    │
+    ▼
+在 packages/web/node_modules/.bin/ 中查找 vite
+    │
+    ▼ 找到后执行
+packages/web/node_modules/.bin/vite --force
+```
+
+### pnpm 如何找到 vite
+
+pnpm 会在以下位置按顺序查找：
+
+```
+1. packages/web/node_modules/.bin/vite  ← 主要查找位置
+          │
+          ▼ 如果没有
+2. 向上查找父目录的 node_modules/.bin/
+          │
+          ▼ 如果都没有
+3. 报错 "command not found"
+```
+
+### .bin 目录是怎么形成的？
+
+执行 `pnpm install` 时，pnpm 会：
+
+```
+1. 读取 package.json 中的 dependencies
+2. 从 npm registry 下载包到 pnpm store（全局缓存）
+3. 在当前包的 node_modules 中创建 .bin 目录
+4. .bin 目录中的文件是指向 .pnpm 目录的软链接
+```
+
+### pnpm 的存储结构
+
+pnpm 使用独特的 **硬链接 + 软链接** 结构：
+
+```
+node_modules/
+    ├── .pnpm/                    # 实际存储位置（通过硬链接指向全局 store）
+    │   └── vite@7.2.7/
+    │       └── node_modules/
+    │           └── vite/
+    │               └── bin/
+    │                   └── vite.js
+    │
+    └── .bin/                     # 软链接，方便调用
+        └── vite → ../../.pnpm/vite@7.2.7/.../vite.js
+```
+
+### NODE_PATH 的作用
+
+#### 什么是 NODE_PATH？
+
+**NODE_PATH** 是 Node.js 的内置环境变量，用于扩展模块搜索路径。它的作用是：告诉 Node.js 在默认查找规则之外，额外去哪些目录中寻找模块（`require()` 或 `import` 的包）。
+
+#### Node.js 默认如何找模块？
+
+当你写代码 `const vite = require('vite')` 时，Node.js 按以下顺序查找：
+
+```
+1. 内置模块（如 fs, path）→ 直接返回
+2. 当前目录的 node_modules/
+3. 逐级向上遍历父目录，查找 node_modules/
+4. 全局安装目录（如 ~/.npm-global/lib/node_modules）
+5. NODE_PATH 指定的目录（如果设置了）
+```
+
+#### pnpm 设置的 NODE_PATH
+
+pnpm 生成的启动脚本会设置一个很长的 NODE_PATH：
+
+```bash
+export NODE_PATH="/Users/pcm/.../vite@7.2.7_.../vite/bin/node_modules:
+                  /Users/pcm/.../vite@7.2.7_.../vite/node_modules:
+                  /Users/pcm/.../vite@7.2.7_.../node_modules:
+                  /Users/pcm/.../node_modules/.pnpm/node_modules"
+```
+
+这告诉 Node.js：去这些位置找模块。
+
+#### 为什么需要这么长？
+
+因为 pnpm 的依赖是**隔离存储**的：
+
+```
+传统 npm 结构：
+node_modules/
+    vite/
+        node_modules/
+            jiti/        ← 直接能找到
+
+pnpm 结构：
+.pnpm/
+    vite@7.2.7_.../
+        node_modules/
+            vite/
+                bin/vite.js
+                node_modules/
+                    jiti/    ← 在深处，Node.js 默认找不到！
+```
+
+如果不用 NODE_PATH，Node.js 找不到 `vite` 内部的 `jiti`、`yaml` 等依赖。
+
+#### 验证方法
+
+```bash
+# 查看当前的 NODE_PATH
+echo $NODE_PATH
+
+# 在 Node.js 中查看
+node -e "console.log(process.env.NODE_PATH)"
+```
+
+### 硬链接 vs 软链接（操作系统层面）
+
+这是**文件系统提供的原生功能**，不是 pnpm 发明的。任何编程语言或工具都可以使用这些系统调用。
+
+#### 什么是文件系统？
+
+**文件系统**是操作系统的一部分，负责管理和组织磁盘上的数据。简单来说，它决定了：
+
+- 文件如何存放
+- 文件如何查找
+- 文件如何保护
+
+常见的文件系统：
+| 操作系统 | 常见文件系统 |
+|----------|------------|
+| Windows | NTFS, FAT32, exFAT |
+| macOS | APFS, HFS+ |
+| Linux | ext4, XFS, Btrfs |
+
+#### 文件系统的核心概念
+
+```
+用户视角：
+  文件 "demo.txt"
+
+操作系统视角：
+  文件名 → inode（身份证号）→ 数据块（磁盘上的实际位置）
+
+文件系统视角：
+  目录项 → inode 表 → 数据块
+```
+
+**三个关键概念**：
+
+1. **目录项（Directory Entry）**
+   - 存储"文件名"和"inode"的对应关系
+   - 就像一本书的"目录页"，告诉你第几章在第几页
+
+2. **inode（Index Node）**
+   - 文件的"身份证号"
+   - 存储文件的元数据（大小、权限、时间等）
+   - 不存储文件名，只存储文件信息
+
+3. **数据块（Data Block）**
+   - 磁盘上真正存放数据的地方
+   - inode 中存储了指向哪些数据块的指针
+
+#### 文件存储流程
+
+当你创建一个文件 `hello.txt`，内容为 "Hello"：
+
+```
+1. 操作系统分配一个空闲的 inode（假设是 123456）
+2. 把文件信息写入 inode 表：
+   - 类型：普通文件
+   - 大小：5 字节
+   - 权限：rw-r--r--
+   - 指向数据块：块 1001
+
+3. 在目录中创建目录项：
+   - 文件名：hello.txt
+   - inode：123456
+
+4. 把数据 "Hello" 写入数据块 1001
+```
+
+#### 读取文件流程
+
+当你读取 `hello.txt`：
+
+```
+1. 在目录中查找 "hello.txt"
+   → 找到 inode：123456
+
+2. 读取 inode 123456
+   → 知道数据在块 1001
+
+3. 读取数据块 1001
+   → 返回内容 "Hello"
+```
+
+#### 文件系统的层级结构
+
+```
+应用程序
+    ↓ write("hello.txt", "Hello")
+操作系统
+    ↓ 系统调用
+文件系统
+    ↓
+┌─────────────────────────────────────────┐
+│  目录区（目录文件）                       │
+│  "hello.txt" → inode 123456            │
+├─────────────────────────────────────────┤
+│  inode 表                                │
+│  inode 123456: 大小=5, 块=1001          │
+├─────────────────────────────────────────┤
+│  数据区                                  │
+│  块 1001: "Hello"                       │
+└─────────────────────────────────────────┘
+磁盘
+```
+
+#### 目录也是文件？
+
+在文件系统中，**目录本质上也是一种文件**。
+
+- 普通文件：数据块存储用户数据
+- 目录文件：数据块存储"文件名 → inode"的映射表
+
+```
+目录的内容示例：
+.
+..
+file1.txt -> inode 123456
+file2.txt -> inode 789012
+subdir/   -> inode 555555
+```
+
+- `.` 代表当前目录
+- `..` 代表父目录
+
+#### 文件系统的系统调用
+
+编程时可以直接调用文件系统操作：
+
+```c
+// Linux 系统调用示例
+open("hello.txt", O_RDONLY)    // 打开文件
+read(fd, buffer, 100)           // 读取文件
+write(fd, "Hello", 5)           // 写入文件
+unlink("hello.txt")             // 删除文件
+link("a.txt", "b.txt")          // 创建硬链接
+symlink("a.txt", "c.txt")       // 创建软链接
+```
+
+这些是操作系统内核提供的接口，npm、pnpm、vim 等工具底层都是调用这些函数。
+
+#### 文件系统与 pnpm 的关系
+
+pnpm 正是利用文件系统的特性来实现高效管理：
+
+- **硬链接**：多个目录项指向同一个 inode，节省空间
+- **软链接**：目录文件中存储另一个文件的路径
+- **inode**：确保即使原文件删除，硬链接仍然有效
+
+---
+
+#### 文件系统的底层原理
+
+要理解硬链接和软链接，需要先了解文件系统的存储结构。
+
+**文件系统的组成**：
+
+```
+磁盘 =
+┌─────────────────────────────────────────────────────────────┐
+│  目录区（存放文件名和 inode 的对应关系）                     │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ 文件名 "test.txt" → inode 123456                   │   │
+│  │ 文件名 "a.txt"    → inode 789012                   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  inode 区（存放文件的元数据）                                │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ inode 123456: 类型=文件, 大小=100, 链接数=1         │   │
+│  │ inode 789012: 类型=目录, 大小=4096, 链接数=2        │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  数据区（存放文件的实际内容）                                 │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ inode 123456 对应的数据: "Hello World"               │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**inode（索引节点）** 是文件的"身份证号"，每个文件都有一个唯一的 inode，存储以下信息：
+- 文件类型（普通文件、目录、链接等）
+- 文件大小
+- 文件权限
+- 创建时间、修改时间
+- 链接数（有多少个文件名指向这个 inode）
+- 指向数据块的指针
+
+#### 硬链接
+
+**概念**：同一个 inode 的多个文件名
+
+```bash
+# 创建硬链接
+ln 源文件 目标文件
+```
+
+**底层原理**：
+
+```
+创建 "test.txt" 后：
+目录区：
+┌─────────────────────────────────────┐
+│ "test.txt" → inode 123456 (链接数:1)│
+└─────────────────────────────────────┘
+
+执行 ln test.txt test_hard.txt 后：
+目录区：
+┌─────────────────────────────────────┐
+│ "test.txt"    → inode 123456 (链接数:2)│
+│ "test_hard.txt" → inode 123456 (链接数:2)│
+└─────────────────────────────────────┘
+      ↑                    ↑
+      └──── 同一份数据 ────┘
+```
+
+**关键点**：
+- 两个文件名指向**同一个 inode**
+- 共享同一份数据
+- 链接数从 1 变成 2
+
+**删除操作的实际行为**：
+
+```bash
+rm test.txt
+```
+
+```
+删除 "test.txt" 后：
+目录区：
+┌─────────────────────────────────────┐
+│ "test_hard.txt" → inode 123456 (链接数:1)│  ← 仍然存在！
+└─────────────────────────────────────┘
+```
+
+**删除操作实际做了什么**：只是把"test.txt"这个文件名从目录中**移除了**，把链接数从 2 改成 1。**并没有删除 inode 和数据**！
+
+只有当链接数变成 **0** 时，系统才会真正删除数据和 inode。
+
+#### 软链接/符号链接
+
+**概念**：一个独立的文件，内容是另一个文件的"路径"
+
+```bash
+# 创建软链接
+ln -s 源文件 目标文件
+```
+
+**底层原理**：
+
+```
+执行 ln -s test.txt test_soft.txt 后：
+目录区：
+┌─────────────────────────────────────────────────────┐
+│ "test.txt"     → inode 123456 (普通文件)           │
+│ "test_soft.txt"→ inode 999999 (软链接类型)          │
+└─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+              inode 999999 的内容: "test.txt"
+```
+
+软链接是一个**独立的文件**，它的数据部分存储的是"指向哪个文件"的路径字符串。
+
+**如果原文件被删除**：
+
+```
+删除 "test.txt" 后：
+目录区：
+┌─────────────────────────────────────────────────────┐
+│ "test_soft.txt"→ inode 999999 (内容: "test.txt")  │
+└─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+              指向 "test.txt"，但这个文件已经不存在了！
+              → 软链接失效
+```
+
+#### 硬链接 vs 软链接对比
+
+| 特性 | 硬链接 | 软链接 |
+|------|--------|--------|
+| 本质 | 同一 inode 的多个名字 | 独立的文件，内容是路径 |
+| 删除原文件 | 另一个仍可用 | 软链接失效 |
+| 链接数 | 有（记录在 inode） | 无（只是普通文件） |
+| 跨分区 | ❌ 不能 | ✅ 可以 |
+| 目录 | ❌ 不能 link 目录 | ✅ 可以 |
+| 磁盘空间 | 不额外占用 | 几乎不占用 |
+
+#### 验证命令
+
+```bash
+# 查看文件 inode
+ls -li test.txt
+
+# 创建硬链接
+ln test.txt test_hard.txt
+
+# 创建软链接
+ln -s test.txt test_soft.txt
+
+# 查看结果
+ls -li
+# 输出示例：
+# 1234567 -rw-r--r-- 2 pcm staff 6 test.txt      ← 链接数 2
+# 1234567 -rw-r--r-- 1 pcm staff 6 test_hard.txt ← 同一 inode
+# 1234568 lrwxr-xr-x 1 pcm staff 8 test_soft.txt → test.txt
+
+# 解释：
+# -rw-r--r--  链接数(2)  所有者  大小  修改时间  文件名
+# lrwxrwxrwx  软链接标识  指向
+```
+
+#### 在 pnpm 中的应用
+
+```
+~/.pnpm/vite@7.2.7/bin/vite.js  ← 原始文件，inode: 123456
+
+packages/web/node_modules/.pnpm/vite@7.2.7/.../vite.js
+    ← 硬链接，共享同一个 inode: 123456
+
+packages/web/node_modules/.bin/vite
+    ← 软链接，内容是 "vite.js" 的路径
+```
+
+这样设计的好处：
+- **硬链接**：即使误删全局 store，其他项目的硬链接仍然可用
+- **软链接**：`.bin/` 目录清晰方便调用
+
+### pnpm 为什么需要两者？
+
+| 链接类型 | 使用位置 | 原因 |
+|---------|---------|------|
+| **硬链接** | `.pnpm/` 目录 | 节省磁盘空间 + 保证文件不被误删 |
+| **软链接** | `.bin/` 目录 | 方便调用快捷方式 |
+
+**如果只用软链接**：
+- 如果删除全局 store 中的原文件，所有软链接都会失效
+
+**使用硬链接后**：
+- 全局只存一份文件
+- 只有当所有硬链接都被删除时，文件才真正消失
+- 安全！
+
+### 全局 store 在哪里？
+
+**实际上有两层**：
+
+```
+1. ~/.pnpm/（全局 store）
+   - pnpm 下载的包真正存放的位置
+   - 所有项目共享
+   - 位置：~/.pnpm 或 ~/.local/share/pnpm
+
+2. 当前项目的 node_modules/.pnpm/
+   - 不是全局 store，而是"指向全局 store 的硬链接目录"
+   - 每个项目都有自己独立的 .pnpm 目录
+```
+
+**安装流程**：
+```
+pnpm install vite
+
+    ↓
+检查 ~/.pnpm 是否已有 vite@7.2.7
+    │
+    ├── 如果有 → 创建硬链接到项目的 .pnpm 目录
+    │
+    └── 如果没有 → 下载到 ~/.pnpm，再创建硬链接
+```
+
+### npm vs pnpm vs npx 对比
+
+| 命令 | 查找顺序 | 是否自动下载 |
+|------|----------|-------------|
+| `pnpm run dev` | 当前包 .bin → 向上查找 | ❌ 否 |
+| `pnpm vite --force` | 当前包 .bin → 向上查找 | ❌ 否 |
+| `npm vite --force` | 当前 .bin（不向上查找） | ❌ 否 |
+| `npx vite --force` | 当前 .bin → $PATH → 缓存 → npm | ✅ 是，下载到 ~/.npm/_npx/ |
+
+### 常见问题
+
+**Q: 为什么直接执行 `vite --force` 报错？**
+
+A: 因为 vite 没有全局安装，系统 PATH 中找不到。应该用 `pnpm run dev` 或 `pnpm vite --force`。
+
+**Q: npx 会下载到哪里？**
+
+A: 下载到 `~/.npm/_npx/` 临时目录，执行完后可以删除。
+
+**Q: pnpm 和 npm 的核心区别？**
+
+A:
+| 方面 | npm | pnpm |
+|------|-----|------|
+| 依赖结构 | 扁平化 | 虚拟化 |
+| 磁盘空间 | 每个项目独立安装 | 全局 store 复用 |
+| .bin 查找 | 不向上查找 | 向上查找 |
+
+---
+
+## 架构概览
+
+### Monorepo 结构
+
+```
+packages/core (核心业务逻辑)
+        ↓
+packages/ui (Vue 组件)
+        ↓
+packages/web | extension | desktop (应用层)
+```
+
+### 核心服务 (`packages/core/src/services/`)
+
+- **llm/** - LLM API 集成 (OpenAI、Gemini、DeepSeek 等)
+- **model/** - 模型配置管理，支持高级参数
+- **prompt/** - 提示词优化和测试
+- **template/** - 模板管理 (CSP 安全处理)
+- **history/** - 优化历史记录
+- **storage/** - 多适配器存储 (localStorage、IndexedDB、文件系统)
+- **preference/** - 用户偏好设置
+
+### Electron 架构
+
+桌面端采用 **代理模式**：
+- 主进程运行所有核心服务
+- 渲染进程通过 `*-electron-proxy.ts` 文件调用
+- IPC 序列化处理复杂对象传递
+- 业务逻辑保持在共享的核心服务中
+
+---
+
+## 部署方式
+
+1. **Web** - Vercel 部署 (纯前端，无跨域限制问题)
+2. **Desktop** - Electron 应用 (无跨域限制，可连接本地模型)
+3. **Chrome Extension** - 浏览器插件
+4. **Docker** - 包含 MCP 服务器 (`/mcp` 路径)
+
+---
+
+## 常用命令
+
+以下命令均在**项目根目录**执行，对应根目录 `package.json` 的 `scripts`。
+
+### 快速参考
+
+```bash
+# 开发
+pnpm dev:fresh         # 清理缓存并重启开发服务（推荐首次/异常时用）
+pnpm dev               # 构建 core/ui 后启动 Web 开发（ui watch + web dev）
+pnpm dev:desktop       # 开发桌面应用（web dev + desktop 并行）
+pnpm dev:desktop:fresh # 清理并重启桌面开发
+pnpm dev:ext           # 仅开发 Chrome 扩展
+
+# 构建
+pnpm build             # 全量构建：core → ui → (web + ext 并行)
+pnpm build:desktop     # 桌面用：core → ui → web → desktop
+
+# 测试
+pnpm test              # 单元测试 + 智能 E2E
+pnpm test:unit         # 仅单元测试（所有包递归）
+pnpm test:e2e          # 完整 Playwright E2E
+pnpm test:e2e:smart    # 智能选择 E2E（脚本决策）
+
+# MCP / 代码检查 / 清理
+pnpm mcp:dev / mcp:build / mcp:start / mcp:test
+pnpm lint / lint:fix   # 仅对 ui 包执行
+pnpm clean             # 清理 dist 与 vite 缓存
+pnpm kill:dev          # 终止占用端口的开发进程
+```
+
+### 根 package.json 脚本说明
+
+按类别说明各命令作用（与根目录 `package.json` 的 `scripts` 对应）。
+
+#### 构建 (build)
+
+| 命令 | 说明 |
+|------|------|
+| `build` | 顺序执行 build:core → build:ui，再**并行** build:web、build:ext；全量构建 Web 与扩展 |
+| `build:core` | 仅构建 `@prompt-optimizer/core`（tsup 输出到 dist） |
+| `build:ui` | 仅构建 `@prompt-optimizer/ui` |
+| `build:parallel` | 并行执行 build:web、build:ext |
+| `build:web` | 仅构建 Web 应用（Vite build） |
+| `build:ext` | 仅构建 Chrome 扩展 |
+| `build:desktop-only` | 仅构建 Electron 桌面包（不包含 core/ui/web 的构建） |
+| `build:desktop` | 顺序：build:core → build:ui → build:web → build:desktop-only；打桌面版前用 |
+
+#### 开发 (dev)
+
+| 命令 | 说明 |
+|------|------|
+| `dev` | 先 clean:dist，再构建 core、ui，最后并行：ui 的 `build --watch` + web 的 `dev`（本地 Web 开发） |
+| `dev:fresh` | 先 kill:dev → clean → pnpm install，再执行 dev；清理缓存并重装依赖后启动，异常时推荐 |
+| `dev:parallel` | 并行：`pnpm -F @prompt-optimizer/ui build --watch`、`pnpm -F @prompt-optimizer/web dev` |
+| `dev:ext` | 仅启动扩展开发（`@prompt-optimizer/extension dev`） |
+| `dev:desktop` | 先 clean:dist、构建 core/ui，再 dev:desktop:parallel |
+| `dev:desktop:fresh` | kill:dev → clean → pnpm install → dev:desktop；桌面开发前做一次干净安装并启动 |
+| `dev:desktop:parallel` | 并行：web dev、desktop dev（Electron 会加载本地 web 服务） |
+
+**dev:parallel 与 concurrently**
+
+`dev:parallel` 用 **concurrently** 在同一个终端里**并行**跑两条命令：
+
+1. `pnpm -F @prompt-optimizer/ui build --watch`：UI 包构建并开 watch，改文件自动重编。
+2. `pnpm -F @prompt-optimizer/web dev`：启动 Web 的 Vite 开发服务（如 http://localhost:18181）。
+
+参数含义：**`-k`** 表示有一个子进程退出就把其他一起结束；**`-p \"[{name}]\"`** 给每条输出加前缀；**`-n \"UI,WEB\"`** 给两个进程起名为 UI、WEB，终端里会看到 `[UI]`、`[WEB]` 的日志。concurrently 的作用就是在一条 script 里同时跑多个命令并统一管理输出与退出。
+
+#### 测试 (test)
+
+| 命令 | 说明 |
+|------|------|
+| `test` | 先跑 test:unit，再跑 test:e2e:smart（单元 + 智能 E2E） |
+| `test:unit` | 对所有 workspace 包递归执行 `pnpm test`（`--run` 单次，`--passWithNoTests` 无测试也通过） |
+| `test:e2e` | 直接执行 Playwright 全部 E2E |
+| `test:e2e:smart` | 运行 `scripts/smart-e2e.js`，由脚本选择要跑的 E2E |
+| `test:e2e:record` | 以录制模式跑 Playwright（E2E_VCR_MODE=record） |
+| `test:e2e:replay` | 以回放模式跑 Playwright（E2E_VCR_MODE=replay） |
+| `test:gate:core` | 仅跑 core 的 test:gate（核心门禁用例） |
+| `test:gate:ui` | 先构建 core，再跑 ui 的 test |
+| `test:gate:e2e` | 跑指定 E2E：regression + p0-route-smoke |
+| `test:gate` | 顺序执行 test:gate:core、test:gate:ui（CI 门禁） |
+| `test:gate:full` | test:gate 后再跑 test:gate:e2e（完整门禁） |
+| `test:fast` | 与 test:unit 相同，全包递归单次测试 |
+| `test:e2e:ui` | Playwright 的 UI 模式（交互选用例） |
+| `test:e2e:debug` | Playwright 的 debug 模式 |
+
+#### 清理 (clean)
+
+| 命令 | 说明 |
+|------|------|
+| `clean` | 执行 clean:dist 和 clean:vite |
+| `clean:dist` | 删除各包的 dist 及 desktop/web-dist |
+| `clean:vite` | 删除各包下的 `node_modules/.vite` 缓存 |
+
+#### 版本与发布 (version)
+
+| 命令 | 说明 |
+|------|------|
+| `version:sync` | 运行 `scripts/sync-versions.js`，同步各子包版本号 |
+| `version` | 先 version:sync，再 `git add -A` |
+| `version:prepare` | `pnpm version --no-git-tag-version`，只改版本号不打 tag |
+| `version:tag` | 用当前 package.json 的 version 打 git tag |
+| `version:publish` | 推送当前版本对应的 tag 到远端 |
+
+#### MCP 服务 (mcp)
+
+| 命令 | 说明 |
+|------|------|
+| `mcp:build` | 构建 `@prompt-optimizer/mcp-server` |
+| `mcp:dev` | 以开发模式启动 MCP 服务 |
+| `mcp:start` | 启动 MCP 服务（生产模式） |
+| `mcp:test` | 运行 MCP 服务的测试 |
+
+#### 代码检查 (lint)
+
+| 命令 | 说明 |
+|------|------|
+| `lint` | 仅对 `@prompt-optimizer/ui` 执行 lint |
+| `lint:fix` | 仅对 ui 执行 lint 并自动修复 |
+
+#### BMAD 相关 (bmad)
+
+| 命令 | 说明 |
+|------|------|
+| `bmad:refresh` | 执行 bmad-method install -f -i codex，刷新 BMAD 与 Codex 配置 |
+| `bmad:list` | 列出 BMAD agents |
+| `bmad:validate` | 校验 BMAD 配置 |
+
+#### 其他
+
+| 命令 | 说明 |
+|------|------|
+| `pnpm-install` | 仅执行 `pnpm install`（常被 dev:fresh 等串联使用） |
+| `kill:dev` | 运行 `scripts/kill-dev.js`，终止占用端口的开发进程（如 18181） |
+
+#### npm-run-all 是什么？
+
+根脚本里的 `build`、`dev`、`test` 等复杂流程用 **npm-run-all** 把多条 script 串起来执行。它是一个 npm 包，用来**按顺序或并行执行多条本包 `package.json` 里的 script**，不用手写一长串 `&&` 或开多个终端。
+
+**常用用法：**
+
+- **顺序执行**：`npm-run-all build:core build:ui build:parallel` → 先跑完 build:core，再 build:ui，再 build:parallel。
+- **并行执行**：`npm-run-all --parallel build:web build:ext` → 同时跑 build:web 和 build:ext。
+- **`-s`**：前一个失败就停止，不继续后面的（视版本而定）。
+
+**执行原理简述：**
+
+1. **输入**：你传入的是 script 名字（如 `build:core`），它会读当前目录 `package.json` 的 `scripts`，找到对应命令（如 `pnpm -F @prompt-optimizer/core build`）。只执行本包已定义的 script，不执行任意 shell。
+2. **顺序模式**：对每个 script 名字起一个子进程（内部用 `npm run <script>` 或等价方式），等该进程退出后再启动下一个；任一非 0 退出可配置为立即停止。
+3. **并行模式**：对多个 script 同时各起一个子进程，等全部结束后再根据退出码决定整体成功/失败。
+4. **与 pnpm**：在 pnpm 项目里通常仍通过 npm 的 run-script 接口触发（或直接 `pnpm run xxx`），真正执行 `pnpm -F ...` 的是子进程里的 npm/pnpm。
+
+可简单记：**npm-run-all = 按你给的 script 名字列表，用子进程顺序或并行地执行 `npm run <名字>`，并管理顺序与退出码。**
+
+---
+
+## 开发服务器访问地址
+
+执行 `pnpm dev` 或 `pnpm dev:fresh` 后，终端会输出三条访问地址，例如：
+
+```
+Local:   http://localhost:18181/
+[WEB]   ➜  Network: http://192.168.1.102:18181/
+[WEB]   ➜  Network: http://198.18.0.1:18181/
+```
+
+| 地址 | 含义 |
+|------|------|
+| **localhost:18181** | 本机访问，在浏览器打开即可 |
+| **192.168.1.102:18181** | 局域网地址，同一 WiFi 下的手机/其他电脑可访问 |
+| **198.18.0.1:18181** | 虚拟网卡地址（Cursor、VPN 等），一般可忽略 |
+
+**配置位置：** `packages/web/vite.config.ts` 中的 `server`：
+
+- **`port: 18181`**：固定端口号
+- **`host: true`**：监听所有网卡（`0.0.0.0`），Vite 会为每个网络接口各打印一条 URL，因此出现多条
+
+**可选调整：**
+
+- 只在本机访问、不显示多条：将 `host: true` 改为 `host: false`（或删除），则仅显示 localhost，局域网设备无法访问
+- 修改端口：改 `port: 18181` 为其他数字即可
+
+---
+
+## 学习路径
+
+### 阶段一：环境搭建
+
+1. 阅读 `dev.md` 搭建开发环境
+2. 运行 `pnpm dev:fresh` 启动开发服务器
+3. 访问本地地址体验产品
+
+### 阶段二：核心服务
+
+推荐阅读顺序：
+
+1. **`packages/core/src/services/storage/`** - 存储服务，了解数据持久化
+2. **`packages/core/src/services/llm/`** - LLM 服务，了解如何调用 AI
+3. **`packages/core/src/services/model/`** - 模型管理，了解配置管理
+4. **`packages/core/src/services/prompt/`** - 提示词优化核心逻辑
+
+### 阶段三：UI 层
+
+1. **`packages/ui/src/composables/`** - 状态管理 (Composable 模式)
+2. **`packages/ui/src/components/`** - Vue 组件实现
+3. 重点组件：`AdvancedTestPanel.vue` - 高级测试面板
+
+### 阶段四：桌面端
+
+1. **`packages/desktop/`** - Electron 主进程
+2. **`docs/developer/desktop-developer-guide.md`** - 桌面开发指南
+3. **`docs/developer/electron-ipc-best-practices.md`** - IPC 最佳实践
+
+---
+
+## 关键文档
+
+| 文档 | 说明 |
+|------|------|
+| `dev.md` | 开发环境搭建详细指南 |
+| `docs/developer/project-structure.md` | 详细项目结构 |
+| `docs/developer/technical-development-guide.md` | 技术开发指南 |
+| `docs/developer/llm-params-guide.md` | LLM 参数配置指南 |
+| `docs/developer/desktop-developer-guide.md` | 桌面端开发指南 |
+| `docs/developer/electron-ipc-best-practices.md` | Electron IPC 最佳实践 |
+
+---
+
+## 二次开发指南
+
+### 添加新的 LLM 提供商
+
+1. 在 `packages/core/src/services/llm/` 下创建新的服务目录
+2. 实现标准的 LLM 接口
+3. 在 `packages/core/src/services/model/` 注册新模型
+4. 在 UI 的模型选择器中添加选项
+
+### 修改 UI 组件
+
+1. 组件位于 `packages/ui/src/components/`
+2. 优先使用 **Naive UI** 组件
+3. 使用 Vue 3 Composition API
+4. 遵循 `theme-manager-*` CSS 类主题系统
+
+### 修改核心业务逻辑
+
+1. 业务逻辑在 `packages/core/src/services/`
+2. Electron 桌面端通过代理模式调用核心服务
+3. 修改服务后需同时更新代理层 (`*-electron-proxy.ts`)
+
+---
+
+## 代码规范
+
+### Commit 规范
+
+```bash
+feat(ui): 添加新功能
+fix(core): 修复问题
+docs: 更新文档
+perf: 性能优化
+refactor: 重构
+```
+
+### 代码审查要点
+
+- 深层风险审查（三步审查法）：
+  1. **逻辑审查** - 模拟用户高频/并发/异常操作
+  2. **状态管理审查** - 追踪完整场景验证状态同步
+  3. **通信链路审查** - 验证模块间事件传递完整性
+
+---
+
+## 项目完整结构
+
+### 根目录文件
+
+| 文件 | 说明 |
+|------|------|
+| `package.json` | 根包配置，定义所有子包和脚本 |
+| `pnpm-workspace.yaml` | pnpm 工作空间配置（声明哪些包属于同一个 monorepo） |
+| `tsconfig.json` | TypeScript 根配置 |
+| `tailwind.config.js` | Tailwind CSS 配置 |
+| `.env.local.example` | 环境变量示例 |
+| `Dockerfile` | Docker 镜像构建 |
+| `docker-compose.yml` | Docker Compose 配置 |
+
+#### `pnpm-workspace.yaml` 作用说明
+
+- **Workspace 声明**：通过 `packages:` 列表告诉 pnpm「哪些目录里的 `package.json` 属于这个工作区」。
+- **本地联调**：子包之间（如 `@prompt-optimizer/web`、`@prompt-optimizer/ui`、`@prompt-optimizer/core`）可以互相作为本地依赖使用，而不是从 npm 下载。
+- **共享依赖**：所有子包共用根目录的 `pnpm-lock.yaml` 和 `node_modules` 结构，减少重复安装。
+- **跨包命令**：支持 `pnpm -F @prompt-optimizer/web dev`、`pnpm -r test` 这类「对指定包/所有包」执行命令。
+
+> 新建 monorepo 时需要手动创建这个文件；在本项目中已配置好，只在**新增或移动包目录**时才需要调整。
+
+#### pnpm -F 与 pnpm -r
+
+- **`pnpm -F`**（`--filter`）：只对**指定的包**执行命令。
+  - 例：`pnpm -F @prompt-optimizer/web dev`、`pnpm -F @prompt-optimizer/core test`
+  - 可按包名或通配符过滤，如 `pnpm -F "*web*" test`。
+- **`pnpm -r`**（`--recursive`）：对 **workspace 里所有包** 递归执行同一命令。
+  - 例：`pnpm -r test` 会在每个子包里执行 `pnpm test`（根脚本里的 `test:unit` 即用此方式）。
+- **何时用哪个**：只改某个包时用 `-F`；全仓检查/回归用 `-r` 或根脚本。可记：**F = Filter（筛选包），r = recursive（所有包都跑）**。
+
+#### ignoredBuiltDependencies
+
+在 `pnpm-workspace.yaml` 中配置，例如：
+
+```yaml
+ignoredBuiltDependencies:
+  - electron
+  - electron-winstaller
+  - esbuild
+  - vue-demi
+```
+
+- **作用**：这些依赖会正常安装，但 **不执行它们的安装/构建脚本**（如 postinstall、prepare、node-gyp 等）。可加快安装、减少环境差异导致的脚本报错。
+- **不编译这些包会有问题吗？** 一般不会。这些包都是「发布时已编译好」的：
+  - **electron**：预编译二进制，桌面打包由 electron-builder 等处理。
+  - **electron-winstaller**：打 Windows 安装包用，无强依赖的 install 脚本。
+  - **esbuild**：包内带各平台预编译二进制，多数场景跳过脚本仍可用。
+  - **vue-demi**：纯 JS 兼容层，无原生编译。
+- 若出现 Electron 起不来、esbuild 报缺二进制等，可把对应包从 `ignoredBuiltDependencies` 中移除后再 `pnpm install`。
+
+### 脚本目录 `scripts/`
+
+| 文件 | 说明 |
+|------|------|
+| `kill-dev.js` | 终止开发服务器进程 |
+| `smart-e2e.js` | 智能选择 E2E 测试 |
+| `sync-versions.js` | 同步所有包版本号 |
+
+---
+
+### packages/core 核心包
+
+**目录结构：**
+
+```
+packages/core/
+├── src/
+│   ├── index.ts                 # 包入口，导出所有服务
+│   ├── constants/               # 常量定义
+│   │   ├── error-codes.ts       # 错误码定义
+│   │   └── storage-keys.ts      # 存储键名定义
+│   ├── types/                   # 全局类型定义
+│   ├── utils/                   # 工具函数
+│   └── services/                # 核心服务层 ⭐
+│       ├── index.ts             # 服务导出入口
+│       ├── llm/                 # LLM API 集成 ⭐⭐⭐
+│       │   ├── service.ts       # LLM 服务主类
+│       │   ├── types.ts         # 类型定义
+│       │   ├── errors.ts        # 错误类
+│       │   ├── electron-proxy.ts # Electron 代理
+│       │   └── adapters/        # LLM 适配器
+│       │       ├── abstract-adapter.ts # 抽象基类
+│       │       ├── openai-adapter.ts    # OpenAI
+│       │       ├── gemini-adapter.ts    # Google Gemini
+│       │       ├── deepseek-adapter.ts  # DeepSeek
+│       │       ├── anthropic-adapter.ts # Anthropic Claude
+│       │       ├── zhipu-adapter.ts     # 智谱 AI
+│       │       ├── siliconflow-adapter.ts
+│       │       ├── dashscope-adapter.ts
+│       │       ├── openrouter-adapter.ts
+│       │       ├── modelscope-adapter.ts
+│       │       ├── ollama-adapter.ts
+│       │       └── registry.ts   # 适配器注册表
+│       │
+│       ├── model/                # 模型配置管理 ⭐⭐
+│       │   ├── manager.ts       # 模型管理器
+│       │   ├── types.ts         # 类型定义
+│       │   ├── defaults.ts      # 默认配置
+│       │   ├── validation.ts    # 验证逻辑
+│       │   ├── electron-proxy.ts # Electron 代理
+│       │   └── parameter-*.ts   # 参数处理工具
+│       │
+│       ├── prompt/               # 提示词优化 ⭐⭐⭐
+│       │   ├── service.ts       # 提示词优化服务
+│       │   ├── types.ts         # 类型定义
+│       │   ├── factory.ts       # 工厂函数
+│       │   └── electron-proxy.ts
+│       │
+│       ├── template/             # 模板管理
+│       │   ├── csp-safe-processor.ts # CSP 安全处理
+│       │   └── default-templates/    # 默认模板
+│       │       ├── evaluation/       # 评估模板
+│       │       ├── optimization/     # 优化模板
+│       │       └── test/            # 测试模板
+│       │
+│       ├── storage/              # 存储服务 ⭐⭐
+│       │   ├── factory.ts        # 存储工厂
+│       │   ├── adapter.ts        # 适配器接口
+│       │   ├── localStorageProvider.ts   # 浏览器存储
+│       │   ├── fileStorageProvider.ts   # 文件系统存储
+│       │   ├── memoryStorageProvider.ts  # 内存存储
+│       │   └── dexieStorageProvider.ts  # IndexedDB 存储
+│       │
+│       ├── history/              # 历史记录
+│       │   ├── manager.ts       # 历史管理
+│       │   └── electron-proxy.ts
+│       │
+│       ├── preference/           # 用户偏好设置
+│       │   ├── service.ts       # 偏好服务
+│       │   └── electron-proxy.ts
+│       │
+│       ├── image/                # 图像生成 ⭐
+│       │   ├── service.ts       # 图像服务
+│       │   ├── types.ts
+│       │   ├── electron-proxy.ts
+│       │   └── adapters/        # 图像模型适配器
+│       │       ├── gemini.ts
+│       │       ├── openai.ts
+│       │       ├── seedream.ts
+│       │       └── ...
+│       │
+│       ├── evaluation/           # 提示词评估
+│       │   ├── service.ts       # 评估服务
+│       │   └── types.ts
+│       │
+│       ├── compare/              # 对比功能
+│       │   └── service.ts
+│       │
+│       ├── favorite/             # 收藏功能
+│       │   ├── manager.ts
+│       │   └── types.ts
+│       │
+│       ├── context/              # 上下文管理
+│       │   └── repo.ts
+│       │
+│       └── data/                # 数据管理
+│           └── manager.ts
+│
+├── tests/                       # 测试文件
+│   ├── unit/                    # 单元测试
+│   ├── integration/             # 集成测试
+│   └── mocks/                   # Mock 数据
+│
+└── dist/                        # 构建输出
+```
+
+---
+
+### packages/ui UI 组件包
+
+**目录结构：**
+
+```
+packages/ui/
+├── src/
+│   ├── index.ts                 # 包入口
+│   ├── components/              # Vue 组件 ⭐⭐⭐
+│   │   ├── app-layout/         # 应用布局
+│   │   │   ├── PromptOptimizerApp.vue  # 根组件
+│   │   │   ├── AppHeaderActions.vue    # 头部操作
+│   │   │   └── AppCoreNav.vue           # 核心导航
+│   │   │
+│   │   ├── basic-mode/         # 基础模式
+│   │   │   ├── BasicUserWorkspace.vue
+│   │   │   └── BasicSystemWorkspace.vue
+│   │   │
+│   │   ├── context-mode/       # 上下文模式 ⭐
+│   │   │   ├── ContextEditor.vue
+│   │   │   ├── ContextUserWorkspace.vue
+│   │   │   ├── ContextSystemWorkspace.vue
+│   │   │   ├── ConversationManager.vue
+│   │   │   └── ConversationTestPanel.vue
+│   │   │
+│   │   ├── image-mode/         # 图像模式
+│   │   │   ├── ImageText2ImageWorkspace.vue
+│   │   │   └── ImageImage2ImageWorkspace.vue
+│   │   │
+│   │   ├── evaluation/          # 评估相关
+│   │   │   ├── EvaluationPanel.vue
+│   │   │   ├── EvaluationScoreBadge.vue
+│   │   │   └── InlineDiff.vue
+│   │   │
+│   │   ├── variable/           # 变量管理 ⭐
+│   │   │   ├── VariableManagerModal.vue
+│   │   │   ├── VariableEditor.vue
+│   │   │   └── VariableImporter.vue
+│   │   │
+│   │   ├── model/              # 模型管理 UI
+│   │   │   ├── ModelManager.vue
+│   │   │   ├── TextModelManager.vue
+│   │   │   └── ImageModelManager.vue
+│   │   │
+│   │   ├── TemplateManager.vue # 模板管理
+│   │   ├── HistoryDrawer.vue   # 历史抽屉
+│   │   ├── FavoriteManager.vue # 收藏管理
+│   │   ├── OutputDisplay.vue   # 输出展示
+│   │   ├── InputPanel.vue     # 输入面板
+│   │   └── ...
+│   │
+│   ├── composables/             # 组合式函数 ⭐⭐⭐
+│   │   ├── app/               # 应用级
+│   │   ├── prompt/             # 提示词相关 ⭐⭐⭐
+│   │   │   ├── usePrompt.ts
+│   │   │   ├── usePromptOptimization.ts
+│   │   │   ├── usePromptTest.ts
+│   │   │   └── ...
+│   │   ├── model/             # 模型相关
+│   │   ├── context/           # 上下文相关
+│   │   ├── variable/          # 变量相关 ⭐⭐
+│   │   ├── storage/           # 存储相关
+│   │   ├── ui/               # UI 交互
+│   │   ├── mode/             # 模式切换
+│   │   └── workspaces/       # 工作区
+│   │
+│   ├── i18n/                   # 国际化
+│   │   ├── index.ts
+│   │   ├── en.json            # 英文
+│   │   └── zh.json            # 中文
+│   │
+│   ├── styles/                 # 样式文件
+│   │   ├── main.css
+│   │   └── theme-*.css        # 主题样式
+│   │
+│   ├── plugins/                # Vue 插件
+│   ├── config/                 # 配置
+│   └── utils/                  # 工具函数
+│
+└── tests/                      # 测试
+    ├── unit/
+    └── e2e/
+```
+
+---
+
+### packages/web Web 应用
+
+```
+packages/web/
+├── src/
+│   ├── main.ts                 # 入口文件
+│   └── App.vue                 # 根组件
+├── public/                     # 静态资源
+├── vite.config.ts              # Vite 配置
+└── index.html                  # HTML 入口
+```
+
+#### 子包依赖关系与 `workspace:*`
+
+- **分层关系**：  
+  - `@prompt-optimizer/core`：核心业务逻辑库（纯 TS lib）  
+  - `@prompt-optimizer/ui`：UI 组件库，内部依赖 core 并封装成组件/composable  
+  - `@prompt-optimizer/web`：真正的 Web 应用，主要依赖 ui
+- **为什么 web 不直接依赖 core？**  
+  - 典型链路是：`web → ui → core`，web 通过 ui 暴露的组件和 composable 使用核心能力，减少直接耦合。  
+  - 只有当 web 代码里出现 `import xxx from '@prompt-optimizer/core'` 时，才需要在 `packages/web/package.json` 里显式声明对 core 的依赖。
+- **`workspace:*` 的含义**（示例：`"@prompt-optimizer/ui": "workspace:*"`）：  
+  - 告诉 pnpm：依赖的是**当前 workspace 中的本地包**，而不是 npm registry 上的远程版本。  
+  - `*` 表示接受本地包的任意版本，发布/对齐版本时由根脚本统一管理。  
+  - 还有 `workspace:^`、`workspace:~`、`workspace:1.2.3` 等写法，用来增加版本约束，但本项目中用 `workspace:*` 即可满足内部开发需求。
+
+---
+
+### packages/desktop 桌面应用 (Electron)
+
+```
+packages/desktop/
+├── main.js                     # Electron 主进程 ⭐⭐
+├── preload.js                  # 预加载脚本 ⭐⭐
+├── config/                     # 配置文件
+├── icons/                      # 应用图标
+├── README.md
+└── package.json
+```
+
+**核心文件说明：**
+
+| 文件 | 说明 |
+|------|------|
+| `main.js` | Electron 主进程，负责创建窗口、IPC 处理、自动更新 |
+| `preload.js` | 预加载脚本，暴露安全的 API 给渲染进程 |
+
+---
+
+### packages/extension Chrome 扩展
+
+```
+packages/extension/
+├── src/
+│   ├── main.ts                 # 入口
+│   ├── App.vue                 # 根组件
+│   └── style.css               # 样式
+├── public/
+│   ├── icons/                  # 扩展图标
+│   └── _locales/              # 国际化
+└── manifest.json              # 扩展配置
+```
+
+---
+
+### packages/mcp-server MCP 服务器
+
+```
+packages/mcp-server/
+├── src/
+│   ├── config/                 # 配置
+│   ├── adapters/              # 协议适配器
+│   ├── utils/                 # 工具
+│   └── main.ts                # 入口
+└── package.json
+```
+
+---
+
+### 根目录其他文件
+
+| 目录/文件 | 说明 |
+|-----------|------|
+| `.cursor/rules/` | Cursor IDE 规则配置 |
+| `docs/` | 项目文档 |
+| `images/` | 图片资源 |
+| `.github/` | GitHub Actions 工作流 |
