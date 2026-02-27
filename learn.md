@@ -233,6 +233,7 @@ VITE_OPENAI_API_KEY=your_key_here
 #### 3. 依赖预构建 (optimizeDeps)
 
 首次启动时，Vite 会预构建依赖：
+理论上这个地方不需要进行手动预构建，因为Vite会自动对第三方包进行预构建，只有自动预构建失败时才需要手动预构建。
 
 ```typescript
 optimizeDeps: {
