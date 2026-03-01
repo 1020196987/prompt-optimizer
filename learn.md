@@ -4,6 +4,47 @@
 
 Prompt Optimizer 是一个 AI 提示词优化工具，帮助用户编写更好的提示词来提升 AI 输出质量。支持四种使用方式：Web 应用、桌面应用、Chrome 插件、Docker 部署。
 
+### 同类产品对比
+
+| 产品 | 开发者 | 技术栈 | 特点 |
+|------|--------|--------|------|
+| **Prompt Optimizer** | 开源社区 | Vue 3 + Naive UI | 开源、跨平台（Web/桌面/扩展/Docker） |
+| **PromptPilot** | 字节跳动火山引擎 | React + Arco Design | 云端部署、企业级安全、微前端架构 |
+
+#### PromptPilot 简介
+
+**PromptPilot** 是字节跳动火山引擎推出的 AI 提示词工具，与 Prompt Optimizer 功能类似。
+
+- **官网**：https://promptpilot.volcengine.com/
+- **技术栈**：React 18.2.0 + Arco Design
+- **架构**：微前端模块化设计
+- **特点**：
+  - 模块化设计，支持动态加载 AI Agent 模块
+  - 云端部署，依托火山引擎全球化 CDN
+  - 企业级安全，集成 CSRF Token 验证
+  - 前后端分离，基于 fetch API 通信
+
+#### 功能对比
+
+| 功能 | Prompt Optimizer | PromptPilot |
+|------|-----------------|-------------|
+| 提示词优化 | ✅ | ✅ |
+| 提示词测试 | ✅ | ✅ |
+| 多模型支持 | ✅ | ✅ |
+| 变量管理 | ✅ | ✅ |
+| 模板管理 | ✅ | ✅ |
+| 历史记录 | ✅ | ✅ |
+| 收藏功能 | ✅ | ✅ |
+| 评估功能 | ✅ | ❓ |
+| 图像生成 | ✅ | ❓ |
+
+#### 本项目优势
+
+1. **开源免费**：完全开源，可自行部署
+2. **跨平台**：支持 Web、桌面端、Chrome 扩展、Docker
+3. **本地运行**：可离线使用，保护数据隐私
+4. **技术栈**：Vue 3 + Naive UI，TypeScript 友好
+
 ---
 
 ## 技术栈
@@ -1308,10 +1349,10 @@ packages/core/
 ```
 packages/ui/
 ├── src/
-│   ├── index.ts                 # 包入口
+│   ├── index.ts                 # 包入口 ⭐⭐⭐
 │   ├── components/              # Vue 组件 ⭐⭐⭐
 │   │   ├── app-layout/         # 应用布局
-│   │   │   ├── PromptOptimizerApp.vue  # 根组件
+│   │   │   ├── PromptOptimizerApp.vue  # 根组件（核心）
 │   │   │   ├── AppHeaderActions.vue    # 头部操作
 │   │   │   └── AppCoreNav.vue           # 核心导航
 │   │   │
@@ -1319,7 +1360,7 @@ packages/ui/
 │   │   │   ├── BasicUserWorkspace.vue
 │   │   │   └── BasicSystemWorkspace.vue
 │   │   │
-│   │   ├── context-mode/       # 上下文模式 ⭐
+│   │   ├── context-mode/       # 上下文/专业模式 ⭐⭐⭐
 │   │   │   ├── ContextEditor.vue
 │   │   │   ├── ContextUserWorkspace.vue
 │   │   │   ├── ContextSystemWorkspace.vue
@@ -1330,12 +1371,12 @@ packages/ui/
 │   │   │   ├── ImageText2ImageWorkspace.vue
 │   │   │   └── ImageImage2ImageWorkspace.vue
 │   │   │
-│   │   ├── evaluation/          # 评估相关
+│   │   ├── evaluation/        # 评估相关 ⭐⭐
 │   │   │   ├── EvaluationPanel.vue
 │   │   │   ├── EvaluationScoreBadge.vue
 │   │   │   └── InlineDiff.vue
 │   │   │
-│   │   ├── variable/           # 变量管理 ⭐
+│   │   ├── variable/           # 变量管理 ⭐⭐⭐
 │   │   │   ├── VariableManagerModal.vue
 │   │   │   ├── VariableEditor.vue
 │   │   │   └── VariableImporter.vue
@@ -1345,40 +1386,55 @@ packages/ui/
 │   │   │   ├── TextModelManager.vue
 │   │   │   └── ImageModelManager.vue
 │   │   │
-│   │   ├── TemplateManager.vue # 模板管理
+│   │   ├── TemplateManager.vue  # 模板管理
 │   │   ├── HistoryDrawer.vue   # 历史抽屉
 │   │   ├── FavoriteManager.vue # 收藏管理
 │   │   ├── OutputDisplay.vue   # 输出展示
-│   │   ├── InputPanel.vue     # 输入面板
+│   │   ├── InputPanel.vue      # 输入面板
 │   │   └── ...
 │   │
-│   ├── composables/             # 组合式函数 ⭐⭐⭐
-│   │   ├── app/               # 应用级
+│   ├── composables/            # 组合式函数 ⭐⭐⭐
+│   │   ├── app/                # 应用级
 │   │   ├── prompt/             # 提示词相关 ⭐⭐⭐
-│   │   │   ├── usePrompt.ts
-│   │   │   ├── usePromptOptimization.ts
-│   │   │   ├── usePromptTest.ts
-│   │   │   └── ...
-│   │   ├── model/             # 模型相关
-│   │   ├── context/           # 上下文相关
-│   │   ├── variable/          # 变量相关 ⭐⭐
-│   │   ├── storage/           # 存储相关
-│   │   ├── ui/               # UI 交互
-│   │   ├── mode/             # 模式切换
-│   │   └── workspaces/       # 工作区
+│   │   ├── model/              # 模型相关
+│   │   ├── context/            # 上下文相关
+│   │   ├── variable/           # 变量相关 ⭐⭐⭐
+│   │   ├── storage/            # 存储相关
+│   │   ├── ui/                 # UI 交互
+│   │   ├── mode/               # 模式切换
+│   │   ├── image/              # 图像生成
+│   │   ├── performance/        # 性能优化
+│   │   ├── accessibility/      # 无障碍
+│   │   └── workspaces/         # 工作区
 │   │
-│   ├── i18n/                   # 国际化
-│   │   ├── index.ts
+│   ├── router/                 # Vue Router 配置 ⭐
+│   │   ├── index.ts           # 路由定义
+│   │   ├── RootBootstrapRoute.ts
+│   │   └── guards.ts          # 路由守卫
+│   │
+│   ├── plugins/                # Vue 插件
+│   │   ├── i18n/              # 国际化插件
+│   │   └── pinia/             # 状态管理插件
+│   │
+│   ├── i18n/                   # 国际化资源
 │   │   ├── en.json            # 英文
 │   │   └── zh.json            # 中文
 │   │
 │   ├── styles/                 # 样式文件
-│   │   ├── main.css
-│   │   └── theme-*.css        # 主题样式
+│   │   ├── index.css
+│   │   ├── scrollbar.css
+│   │   └── common.css
 │   │
-│   ├── plugins/                # Vue 插件
 │   ├── config/                 # 配置
-│   └── utils/                  # 工具函数
+│   │   └── naive-theme.ts     # Naive UI 主题配置
+│   │
+│   ├── utils/                  # 工具函数
+│   │   └── data-transformer.ts
+│   │
+│   ├── types/                  # 类型定义
+│   │   └── select-options.ts
+│   │
+│   └── services/              # 服务层
 │
 └── tests/                      # 测试
     ├── unit/
@@ -1387,30 +1443,1113 @@ packages/ui/
 
 ---
 
+## packages/ui 包详解
+
+### 1. 包概述
+
+`packages/ui` 是 **Prompt Optimizer 项目的核心 UI 组件库**，承担了几乎所有的业务逻辑、状态管理和用户界面实现。
+
+**核心职责**：
+- 提供完整的 Vue 3 组件库
+- 实现所有业务逻辑（通过 Composables）
+- 管理状态（Pinia + Composables 模式）
+- 提供国际化、主题系统
+- 定义 Vue Router 路由
+
+**重要特点**：
+- **复用设计**：web、desktop、extension 共用同一个 UI 层
+- **Composables 驱动**：使用 Vue 3 Composition API 封装业务逻辑
+- **Naive UI 优先**：优先使用 Naive UI 组件库
+- **TypeScript 全面支持**：完整的类型定义
+
+---
+
+### 2. 核心文件详解
+
+#### 2.1 package.json
+
+```json
+{
+  "name": "@prompt-optimizer/ui",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "style": "./dist/style.css",
+  "exports": {
+    ".": { "import": "./dist/index.js", "require": "./dist/index.cjs" },
+    "./style.css": "./dist/style.css"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "lint": "eslint src --ext .ts,.vue"
+  },
+  "dependencies": {
+    "@prompt-optimizer/core": "workspace:*",  // 依赖核心包
+    "naive-ui": "^2.42.0",                     // UI 组件库
+    "pinia": "^3.0.3",                         // 状态管理
+    "vue-router": "4",                         // 路由
+    "vue": "^3.3.4",                           // Vue 3
+    "codemirror": "^6.0.2",                    // 代码编辑器
+    "markdown-it": "^14.1.0",                   // Markdown 解析
+    "highlight.js": "^11.11.1",                // 代码高亮
+    "dompurify": "^3.2.4",                     // HTML 净化
+    "@vicons/tabler": "^0.13.0",               // 图标库
+    "uuid": "^11.0.5"                          // UUID 生成
+  }
+}
+```
+
+**关键点**：
+- 输出多种格式：CJS、ESM、类型定义、CSS
+- 依赖 `@prompt-optimizer/core` 获取核心服务
+- 使用 Naive UI 作为主要组件库
+
+---
+
+#### 2.2 index.ts（包入口）
+
+```typescript
+// packages/ui/src/index.ts
+
+// 样式导入
+import "./styles/index.css";
+import "./styles/scrollbar.css";
+import "./styles/common.css";
+
+// 1. 插件导出
+export {
+  installI18n,
+  installI18nOnly,
+  initializeI18nWithStorage,
+  setI18nServices,
+  i18n,
+} from "./plugins/i18n";
+
+export { pinia, installPinia, setPiniaServices } from "./plugins/pinia";
+
+// 2. 主题配置导出
+export {
+  currentNaiveTheme as naiveTheme,
+  currentThemeOverrides as themeOverrides,
+  switchTheme,
+  initializeNaiveTheme,
+} from "./config/naive-theme";
+
+// 3. 组件导出（带 UI 后缀）
+export { default as ToastUI } from "./components/Toast.vue";
+export { default as ModelManagerUI } from "./components/ModelManager.vue";
+export { default as PromptPanelUI } from "./components/PromptPanel.vue";
+// ... 更多组件
+
+// 4. 应用布局组件
+export { AppHeaderActions, AppCoreNav, PromptOptimizerApp } from "./components/app-layout";
+
+// 5. Router 导出
+export { router } from "./router";
+
+// 6. 评估组件
+export { EvaluationPanel, EvaluateButton, EvaluationScoreBadge } from "./components/evaluation";
+
+// 7. Naive UI 组件再导出
+export { NButton, NInput, NModal, NSelect, ... } from "naive-ui";
+
+// 8. Composables 导出
+export * from "./composables";
+
+// 9. Core 服务转发
+export {
+  StorageFactory,
+  ModelManager,
+  TemplateManager,
+  HistoryManager,
+  createLLMService,
+  createPromptService,
+  // ...
+} from "@prompt-optimizer/core";
+
+// 10. 类型导出
+export type { OptimizationMode, ConversationMessage, IModelManager, ... } from "@prompt-optimizer/core";
+```
+
+**设计说明**：
+- **UI 后缀**：所有组件导出时添加 `UI` 后缀（如 `ToastUI`），避免与其他库冲突
+- **Core 转发**：直接转发 core 包的服务和类型，便于使用
+- **插件集成**：i18n、Pinia、Router 作为插件导出
+
+---
+
+### 3. 组件架构
+
+#### 3.1 组件分类
+
+```
+components/
+├── app-layout/                 # 应用布局 ⭐⭐⭐
+│   ├── PromptOptimizerApp.vue  # 根组件，所有逻辑的集合
+│   ├── AppHeaderActions.vue    # 顶部操作栏
+│   └── AppCoreNav.vue          # 核心导航
+│
+├── basic-mode/                 # 基础模式
+│   ├── BasicSystemWorkspace.vue
+│   └── BasicUserWorkspace.vue
+│
+├── context-mode/               # 上下文/专业模式 ⭐⭐⭐
+│   ├── ContextEditor.vue       # 上下文编辑器
+│   ├── ContextSystemWorkspace.vue  # 系统提示词工作区
+│   ├── ContextUserWorkspace.vue    # 用户提示词工作区
+│   ├── ConversationManager.vue     # 对话管理
+│   └── ConversationTestPanel.vue   # 对话测试面板
+│
+├── image-mode/                 # 图像模式
+│   ├── ImageText2ImageWorkspace.vue
+│   └── ImageImage2ImageWorkspace.vue
+│
+├── evaluation/                # 评估功能 ⭐⭐
+│   ├── EvaluationPanel.vue
+│   ├── EvaluationScoreBadge.vue
+│   └── InlineDiff.vue
+│
+├── variable/                  # 变量管理 ⭐⭐⭐
+│   ├── VariableManagerModal.vue
+│   ├── VariableEditor.vue
+│   └── VariableImporter.vue
+│
+├── model/                      # 模型管理
+│   ├── ModelManager.vue
+│   ├── TextModelManager.vue
+│   └── ImageModelManager.vue
+│
+└── 其他通用组件...
+```
+
+#### 3.2 PromptOptimizerApp.vue（核心组件）
+
+这是 **最核心的组件**，整合了所有业务逻辑：
+
+```vue
+<template>
+  <NConfigProvider :theme="naiveTheme" :theme-overrides="themeOverrides">
+    <!-- 加载状态 -->
+    <div v-if="isInitializing" class="loading-container">
+      <div class="spinner"></div>
+      <p>{{ t("log.info.initializing") }}</p>
+    </div>
+
+    <!-- 渲染主布局 -->
+    <template v-else>
+      <MainLayoutUI>
+        <!-- 核心导航 -->
+        <template #core-nav>
+          <AppCoreNav />
+        </template>
+
+        <!-- 头部操作 -->
+        <template #actions>
+          <AppHeaderActions
+            @open-templates="openTemplateManager"
+            @open-history="historyManager.showHistory = true"
+            @open-model-manager="modelManager.showConfig = true"
+          />
+        </template>
+
+        <!-- 路由出口 -->
+        <router-view />
+      </MainLayoutUI>
+    </template>
+  </NConfigProvider>
+</template>
+
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { NConfigProvider } from 'naive-ui'
+import { useNaiveTheme } from '@/composables/ui/useNaiveTheme'
+import { useAppInitializer } from '@/composables/system/useAppInitializer'
+// ... 更多 composables
+
+const { t } = useI18n()
+const { naiveTheme, themeOverrides } = useNaiveTheme()
+
+// 初始化服务
+const { isInitializing, services, isReady, initialize } = useAppInitializer()
+
+onMounted(() => {
+  initialize()
+})
+</script>
+```
+
+**职责**：
+- 提供 Naive UI 主题配置
+- 管理应用初始化流程
+- 渲染主布局和路由
+- 整合所有状态管理
+
+---
+
+### 4. Composables 架构
+
+#### 4.1 Composables 分类
+
+| 分类 | 路径 | 说明 | 重要程度 |
+|------|------|------|----------|
+| **prompt** | composables/prompt/ | 提示词优化、测试逻辑 | ⭐⭐⭐ |
+| **variable** | composables/variable/ | 变量管理 | ⭐⭐⭐ |
+| **model** | composables/model/ | 模型选择、配置 | ⭐⭐⭐ |
+| **context** | composables/context/ | 上下文管理 | ⭐⭐ |
+| **mode** | composables/mode/ | 模式切换 | ⭐⭐ |
+| **storage** | composables/storage/ | 存储、历史、收藏 | ⭐⭐ |
+| **ui** | composables/ui/ | UI 交互（Toast、模态框等） | ⭐ |
+| **system** | composables/system/ | 应用初始化 | ⭐⭐ |
+| **image** | composables/image/ | 图像生成 | ⭐⭐ |
+| **performance** | composables/performance/ | 性能优化 | ⭐ |
+| **accessibility** | composables/accessibility/ | 无障碍支持 | ⭐ |
+
+#### 4.2 核心 Composables 详解
+
+**提示词相关（composables/prompt/）**：
+
+| Composable | 说明 |
+|------------|------|
+| `usePromptOptimizer` | 提示词优化核心逻辑 |
+| `usePromptTester` | 提示词测试逻辑 |
+| `useTemplateManager` | 模板管理 |
+| `useEvaluation` | 评估功能 |
+| `useVariableExtraction` | 变量提取 |
+| `usePromptHistory` | 历史记录 |
+
+**变量相关（composables/variable/）**：
+
+| Composable | 说明 |
+|------------|------|
+| `useVariableManager` | 变量 CRUD 操作 |
+| `useTemporaryVariables` | 临时变量管理 |
+| `useAggregatedVariables` | 聚合变量 |
+| `useSmartVariableValueGeneration` | 智能变量值生成 |
+
+**模型相关（composables/model/）**：
+
+| Composable | 说明 |
+|------------|------|
+| `useModelManager` | 模型管理器 |
+| `useTextModelManager` | 文本模型管理 |
+| `useImageModelManager` | 图像模型管理 |
+| `useConnectionConfig` | 连接配置 |
+
+#### 4.3 Composables 使用示例
+
+```typescript
+// 示例：使用 usePromptOptimizer
+import { usePromptOptimizer } from '@/composables/prompt/usePromptOptimizer'
+
+const {
+  originalPrompt,
+  optimizedPrompt,
+  isOptimizing,
+  error,
+  optimize
+} = usePromptOptimizer()
+
+// 调用优化
+await optimize({
+  prompt: originalPrompt.value,
+  mode: 'basic'
+})
+```
+
+---
+
+### 5. 路由系统
+
+#### 5.1 路由配置
+
+```typescript
+// packages/ui/src/router/index.ts
+
+const routes: RouteRecordRaw[] = [
+  // 根路径
+  { path: '/', name: 'root', component: RootBootstrapRoute },
+
+  // Basic 模式
+  { path: '/basic/system', component: () => import('.../BasicSystemWorkspace.vue') },
+  { path: '/basic/user', component: () => import('.../BasicUserWorkspace.vue') },
+
+  // Pro 模式
+  { path: '/pro/multi', component: () => import('.../ContextSystemWorkspace.vue') },
+  { path: '/pro/variable', component: () => import('.../ContextUserWorkspace.vue') },
+
+  // Image 模式
+  { path: '/image/text2image', component: () => import('.../ImageText2ImageWorkspace.vue') },
+  { path: '/image/image2image', component: () => import('.../ImageImage2ImageWorkspace.vue') }
+]
+
+export const router = createRouter({
+  history: createWebHashHistory(),  // Hash 模式，Electron 兼容
+  routes
+})
+```
+
+#### 5.2 路由特点
+
+| 特性 | 说明 |
+|------|------|
+| **Hash 模式** | 使用 `#/basic/system` 格式，兼容 Electron |
+| **懒加载** | 组件使用 `() => import()` 动态导入 |
+| **路由守卫** | `beforeRouteSwitch` 监控导航事件 |
+
+#### 5.3 路由与模式对应
+
+| 路由 | 模式 | 组件 |
+|------|------|------|
+| `/basic/system` | 基础模式 | BasicSystemWorkspace |
+| `/basic/user` | 基础模式 | BasicUserWorkspace |
+| `/pro/multi` | 专业模式 | ContextSystemWorkspace |
+| `/pro/variable` | 专业模式 | ContextUserWorkspace |
+| `/image/text2image` | 图像模式 | ImageText2ImageWorkspace |
+| `/image/image2image` | 图像模式 | ImageImage2ImageWorkspace |
+
+---
+
+### 6. 插件系统
+
+#### 6.1 i18n 插件
+
+```typescript
+// packages/ui/src/plugins/i18n/index.ts
+
+export function installI18nOnly(app: App) {
+  // 仅安装 i18n，不初始化语言
+  app.use(i18n)
+}
+
+export function initializeI18nWithStorage() {
+  // 从存储恢复语言设置
+  const savedLocale = localStorage.getItem('locale')
+  if (savedLocale) {
+    i18n.global.locale.value = savedLocale
+  }
+}
+```
+
+#### 6.2 Pinia 插件
+
+```typescript
+// packages/ui/src/plugins/pinia/index.ts
+
+export const pinia = createPinia()
+
+export function installPinia(app: App) {
+  app.use(pinia)
+}
+```
+
+---
+
+### 7. 主题系统
+
+#### 7.1 Naive UI 主题配置
+
+```typescript
+// packages/ui/src/config/naive-theme.ts
+
+import { computed } from 'vue'
+import { darkTheme, lightTheme } from 'naive-ui'
+
+// 当前主题
+export const currentNaiveTheme = computed(() => {
+  return isDark.value ? darkTheme : lightTheme
+})
+
+// 主题覆盖配置
+export const currentThemeOverrides = computed(() => {
+  // 自定义主题 tokens
+})
+
+// 切换主题
+export function switchTheme(isDark: boolean) {
+  // 切换逻辑
+}
+```
+
+---
+
+### 8. 状态管理模式
+
+#### 8.1 设计理念
+
+项目使用 **Pinia + Composables** 的混合模式：
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    Vue 组件                          │
+│                  (展示逻辑)                           │
+└─────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│               Composables (业务逻辑)                 │
+│              usePromptOptimizer                      │
+│              useModelManager                         │
+└─────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│                  Pinia Stores                        │
+│              (共享状态存储)                           │
+└─────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│              @prompt-optimizer/core                  │
+│              (核心服务层)                             │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 8.2 为什么不用 Pinia 存储所有状态？
+
+- **Composables 更灵活**：使用 Vue 3 的 `ref`、`computed` 更直观
+- **关注点分离**：业务逻辑在 Composables，状态在 Store
+- **复用性**：Composables 可以在不同组件间复用
+
+---
+
+### 9. 与其他包的关系
+
+```
+packages/core (核心业务逻辑)
+        │
+        │ 依赖
+        ▼
+packages/ui (Vue 组件库)
+        │
+        │ 依赖（提供入口）
+        ▼
+packages/web (应用壳)
+packages/desktop (桌面应用壳)
+packages/extension (扩展壳)
+```
+
+**依赖链**：
+- `web → ui → core`
+- `core` 提供核心服务（LLM、存储、模型等）
+- `ui` 封装为 Vue 组件和 Composables
+- `web/desktop/extension` 仅作为应用入口
+
+---
+
+### 10. 组件命名规范
+
+#### 10.1 导出命名
+
+```typescript
+// 导出时添加 UI 后缀，避免命名冲突
+export { default as ToastUI } from "./components/Toast.vue"
+export { default as ModelManagerUI } from "./components/ModelManager.vue"
+export { default as InputPanelUI } from "./components/InputPanel.vue"
+```
+
+#### 10.2 组件内部
+
+```vue
+<!-- 组件名使用 PascalCase -->
+<template>
+  <div class="prompt-panel">
+    <NInput v-model:value="prompt" />
+  </div>
+</template>
+```
+
+---
+
+### 11. 常见操作
+
+#### 11.1 构建 UI 包
+
+```bash
+pnpm build:ui
+# 或
+pnpm -F @prompt-optimizer/ui build
+```
+
+#### 11.2 开发模式（Watch）
+
+```bash
+pnpm -F @prompt-optimizer/ui dev
+# 会监听文件变化并重新构建
+```
+
+#### 11.3 添加新组件
+
+1. 在 `components/` 下创建 `.vue` 文件
+2. 在 `index.ts` 中导出（添加 UI 后缀）
+3. 使用 Naive UI 组件优先
+
+#### 11.4 添加新 Composable
+
+1. 在 `composables/` 下创建目录
+2. 编写 `useXxx.ts` 文件
+3. 在 `composables/index.ts` 中导出
+
+---
+
+### 12. 学习路径建议
+
+#### 阶段一：理解入口
+
+1. `index.ts` - 了解导出结构
+2. `PromptOptimizerApp.vue` - 理解整体架构
+3. `router/index.ts` - 理解路由结构
+
+#### 阶段二：理解核心功能
+
+1. **Composables** - 业务逻辑的核心
+   - `usePromptOptimizer` - 提示词优化
+   - `useModelManager` - 模型管理
+   - `useVariableManager` - 变量管理
+
+2. **组件** - 界面的实现
+   - `BasicSystemWorkspace` - 基础模式
+   - `ContextUserWorkspace` - 专业模式
+   - `EvaluationPanel` - 评估功能
+
+#### 阶段三：深入细节
+
+1. 主题系统 (`config/naive-theme.ts`)
+2. 插件系统 (`plugins/`)
+3. 国际化 (`i18n/`)
+
+---
+
+### 13. 核心要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **复用** | web、desktop、extension 共用 ui 包 |
+| **Composables** | 业务逻辑的主要封装方式 |
+| **Naive UI** | 优先使用的组件库 |
+| **TypeScript** | 完整的类型支持 |
+| **Hash Router** | 兼容 Electron 的路由方案 |
+| **懒加载** | 路由组件使用动态导入 |
+
+---
+
+### 14. 下一步学习建议
+
+学习完 `packages/ui` 后，建议深入：
+
+1. **`packages/core`** - 学习核心业务逻辑
+   - LLM 服务
+   - 模型管理
+   - 存储服务
+   - 提示词处理
+
+2. **具体功能模块**：
+   - 变量系统（高级功能）
+   - 评估系统
+   - 图像生成
+
 ### packages/web Web 应用
 
 ```
 packages/web/
 ├── src/
-│   ├── main.ts                 # 入口文件
-│   └── App.vue                 # 根组件
+│   ├── main.ts                 # Vue 应用入口 ⭐
+│   └── App.vue                 # 根组件（轻量壳）
 ├── public/                     # 静态资源
-├── vite.config.ts              # Vite 配置
-└── index.html                  # HTML 入口
+│   ├── config.js              # 运行时配置
+│   └── favicon.ico            # 网站图标
+├── vite.config.ts              # Vite 构建配置
+├── index.html                  # HTML 入口
+├── tailwind.config.js          # Tailwind CSS 配置
+├── postcss.config.js           # PostCSS 配置
+├── tsconfig.json               # TypeScript 配置
+└── package.json                # 包配置
 ```
+
+---
+
+## packages/web 包详解
+
+### 1. 包概述
+
+`packages/web` 是 **Prompt Optimizer 项目的 Web 应用入口包**，但它实际上是一个**非常轻量的应用壳**。
+
+**核心职责**：
+- 作为 Web 应用的入口点
+- 配置 Vue 应用、Vue Router、Pinia 状态管理、i18n 国际化
+- 渲染 `PromptOptimizerApp` 主组件（来自 `@prompt-optimizer/ui`）
+
+**重要特点**：
+- **极简代码**：所有业务逻辑、状态管理、事件处理都在 `@prompt-optimizer/ui` 包中实现
+- **应用壳**：`App.vue` 仅作为壳子，减少代码重复
+- **依赖 UI 包**：通过依赖 `@prompt-optimizer/ui` 来获取完整功能
+
+---
+
+### 2. 目录结构详解
+
+```
+packages/web/
+├── src/
+│   ├── main.ts                 # ⭐ 核心入口文件
+│   │                           # - 创建 Vue 应用实例
+│   │                           # - 安装 i18n、Pinia、Router 插件
+│   │                           # - 同步文档标题和语言属性
+│   │                           # - 挂载到 #app
+│   │
+│   └── App.vue                 # ⭐ 根组件（轻量壳）
+│                               # - 仅渲染 PromptOptimizerApp
+│                               # - 所有逻辑在 ui 包中
+│
+├── public/
+│   ├── config.js               # ⭐ 运行时配置
+│   │                           # - 必须在应用代码之前加载
+│   │                           # - 用于动态配置 API 地址等
+│   │
+│   └── favicon.ico            # 网站图标
+│
+├── index.html                  # HTML 入口
+│                               # - 加载顺序：config.js → main.ts
+│                               # - #app 作为 Vue 挂载点
+│
+├── vite.config.ts              # Vite 配置
+│                               # - 端口：18181
+│                               # - Monorepo 环境变量共享
+│                               # - 跨包监视（ui 变化自动重载）
+│
+├── tailwind.config.js          # Tailwind CSS 配置
+├── postcss.config.js           # PostCSS 配置
+├── tsconfig.json               # TypeScript 配置
+└── package.json                # 依赖配置
+```
+
+---
+
+### 3. 核心文件详解
+
+#### 3.1 package.json
+
+```json
+{
+  "name": "@prompt-optimizer/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --force",         // 启动开发服务器（强制重新预构建）
+    "build": "vite build",          // 生产构建
+    "preview": "vite preview",      // 预览生产构建
+    "test": "vitest"               // 单元测试
+  },
+  "dependencies": {
+    "@prompt-optimizer/ui": "workspace:*",  // 依赖 UI 包
+    "uuid": "^11.0.5",                      // UUID 生成
+    "vue": "^3.5.13"                        // Vue 3
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.2",         // Vue 插件
+    "vite": "^7.2.7",                       // Vite 7
+    "vitest": "^4.0.15",                    // 测试框架
+    "tailwindcss": "^3.4.17",               // CSS 框架
+    // ... 其他工具依赖
+  }
+}
+```
+
+**关键点**：
+- `dependencies` 只有 3 个：ui、uuid、vue
+- 实际业务逻辑全部在 `@prompt-optimizer/ui` 中
+- 使用 `workspace:*` 依赖本地包
+
+---
+
+#### 3.2 index.html
+
+```html
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ⭐ 运行时配置，必须在应用代码之前加载 -->
+    <script src="/config.js"></script>
+    <title>提示词优化器</title>
+  </head>
+  <body>
+    <!-- ⭐ Vue 挂载点 -->
+    <div id="app"></div>
+    <!-- ⭐ 模块入口 -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+```
+
+**加载顺序**：
+1. `config.js` - 运行时配置
+2. `main.ts` - Vue 应用入口
+3. 创建 Vue 实例并挂载到 `#app`
+
+---
+
+#### 3.3 main.ts（核心入口）
+
+```typescript
+/*
+ * Prompt Optimizer - AI提示词优化工具
+ * Web 应用入口文件
+ */
+
+import { createApp, watch } from 'vue'
+import { installI18nOnly, installPinia, i18n, router } from '@prompt-optimizer/ui'
+import '@prompt-optimizer/ui/dist/style.css'
+import App from './App.vue'
+
+// 1. 创建 Vue 应用实例
+const app = createApp(App)
+
+// 2. 安装 i18n 插件（语言初始化在 App.vue 中进行）
+installI18nOnly(app)
+
+// 3. 安装 Pinia 状态管理
+installPinia(app)
+
+// 4. 安装 Vue Router
+app.use(router)
+
+// 5. 同步文档标题和语言属性
+if (typeof document !== 'undefined') {
+  const syncDocumentTitle = () => {
+    document.title = i18n.global.t('common.appName')
+    const currentLocale = String(i18n.global.locale.value || '')
+    const htmlLang = currentLocale.startsWith('zh') ? 'zh' : 'en'
+    document.documentElement.setAttribute('lang', htmlLang)
+  }
+
+  syncDocumentTitle()
+  // 监听语言变化，自动同步
+  // watch 函数：Vue 3 中的响应式监听函数，用于监听数据变化并执行回调
+  // i18n.global.locale：国际化插件的全局语言设置，存储当前应用使用的语言代码
+  // syncDocumentTitle：当语言变化时执行的回调函数，更新文档标题和HTML lang属性
+  watch(i18n.global.locale, syncDocumentTitle)
+}
+
+// 6. 等待 router 完成首次解析，避免短暂 "/" 状态误重定向
+// router.isReady()：Vue Router 提供的方法，返回Promise，当路由系统完成首次解析后resolve
+// 路由就绪的含义：路由系统已完成初始导航解析、所有路由守卫执行完毕、异步组件加载完成、路由参数解析完成
+// 使用场景：确保路由系统完全初始化后再挂载应用，避免路由状态问题和误重定向
+// void 操作符：丢弃Promise返回值，避免未处理的Promise警告
+void router.isReady().then(() => {
+  app.mount('#app')
+})
+
+// 7. Vercel 环境变量加载 Analytics
+if (import.meta.env.VITE_VERCEL_DEPLOYMENT === 'true') {
+  const loadAnalytics = () => {
+    const script = document.createElement('script')
+    script.src = '/_vercel/insights/script.js'
+    script.defer = true
+    document.head.appendChild(script)
+  }
+  window.addEventListener('DOMContentLoaded', loadAnalytics)
+}
+```
+
+**关键步骤**：
+
+| 步骤 | 操作 | 说明 |
+|------|------|------|
+| 1 | `createApp(App)` | 创建 Vue 应用实例 |
+| 2 | `installI18nOnly(app)` | 安装国际化插件 |
+| 3 | `installPinia(app)` | 安装 Pinia 状态管理 |
+| 4 | `app.use(router)` | 安装 Vue Router |
+| 5 | 同步文档标题 | 响应式更新页面标题和 lang 属性 |
+| 6 | `router.isReady()` | 等待路由解析完成后再挂载 |
+| 7 | `app.mount('#app')` | 挂载到 DOM |
+
+**为什么先安装 i18n 再初始化语言？**
+
+注释说明：`installI18nOnly` 只安装 i18n 插件，**语言初始化将在 App.vue 中服务准备好后进行**。这样做是为了确保在服务初始化完成后再初始化语言，避免时序问题。
+
+---
+
+#### 3.4 App.vue（应用壳）
+
+```vue
+<template>
+    <!--
+        Web App 入口组件
+
+        职责:
+        - 作为 web 应用的入口点
+        - 渲染 PromptOptimizerApp 主组件
+
+        说明:
+        - 所有核心逻辑已迁移至 @prompt-optimizer/ui 的 PromptOptimizerApp
+        - 此文件仅作为应用壳，减少代码重复
+    -->
+    <PromptOptimizerApp />
+</template>
+
+<script setup lang="ts">
+/**
+ * Web App 入口组件
+ *
+ * @description
+ * 轻量级入口组件，渲染 PromptOptimizerApp 主应用。
+ * 所有业务逻辑、状态管理和事件处理均在 PromptOptimizerApp 中实现。
+ */
+import { PromptOptimizerApp } from "@prompt-optimizer/ui";
+</script>
+```
+
+**设计理念**：
+- **极简壳子**：`App.vue` 只做一件事 —— 渲染 `PromptOptimizerApp`
+- **代码复用**：web、desktop、extension 都可以复用同一个主应用
+- **关注点分离**：web 包负责应用入口，ui 包负责业务实现
+
+---
+
+#### 3.5 vite.config.ts
+
+```typescript
+import { defineConfig, loadEnv } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { resolve } from 'path'
+
+export default defineConfig(({ mode }) => {
+  // ⭐ Monorepo 环境：在 monorepo 中，脚本可能从不同的 cwd 启动
+  // 不依赖 process.cwd()，而是用配置文件所在位置推导出 monorepo root
+  const monorepoRoot = resolve(__dirname, '../..')
+  const env = loadEnv(mode, monorepoRoot)
+
+  return {
+    // ⭐ 环境变量目录：指向 monorepo 根目录
+    envDir: monorepoRoot,
+
+    // 插件
+    plugins: [vue()],
+
+    // 开发服务器
+    server: {
+      port: 18181,          // 固定端口
+      host: true,           // 监听所有网卡（0.0.0.0）
+      hmr: true,            // 开启热更新
+      fs: {
+        // 允许为工作区依赖提供服务
+        allow: ['..']
+      },
+      watch: {
+        // ⭐ 确保监视 monorepo 中其他包的变化
+        // 当 ui 包变化时，web 自动重载
+        ignored: ['!**/node_modules/@prompt-optimizer/**']
+      }
+    },
+
+    // 构建配置
+    build: {
+      rollupOptions: {
+        input: {
+          main: resolve(__dirname, 'index.html')
+        }
+      }
+    },
+
+    // 静态资源目录
+    publicDir: 'public',
+
+    // 路径别名
+    resolve: {
+      preserveSymlinks: true,
+      alias: {
+        '@': resolve(__dirname, 'src'),
+        '@prompt-optimizer/core': path.resolve(__dirname, '../core'),
+        '@prompt-optimizer/ui': path.resolve(__dirname, '../ui'),
+        '@prompt-optimizer/web': resolve(__dirname, '../web'),
+        '@prompt-optimizer/extension': resolve(__dirname, '../extension')
+      }
+    },
+
+    // 预构建依赖
+    optimizeDeps: {
+      include: ['element-plus'],
+    },
+
+    // 环境变量注入
+    define: {
+      'process.env': {
+        NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+        ...Object.keys(env).reduce((acc, key) => {
+          acc[key] = env[key];
+          return acc;
+        }, {})
+      }
+    }
+  }
+})
+```
+
+**核心配置亮点**：
+
+| 配置 | 说明 |
+|------|------|
+| `envDir: monorepoRoot` | 从 monorepo 根目录读取 `.env` 文件 |
+| `server.port: 18181` | 固定端口，方便记忆和访问 |
+| `server.host: true` | 允许局域网访问 |
+| `server.fs.allow: ['..']` | 允许访问 monorepo 父目录 |
+| `watch.ignored` | 监视 ui 包变化，自动重载 |
+| `resolve.alias` | 路径别名，方便跨包引用 |
+| `optimizeDeps.include` | 预构建 element-plus |
+
+---
+
+### 4. 运行时配置 (config.js)
+
+`public/config.js` 是运行时配置文件，在应用代码之前加载：
+
+```javascript
+// public/config.js 示例
+// 用于动态配置 API 地址等运行时参数
+window.__RUNTIME_CONFIG__ = {
+  // API 配置
+  // API_BASE_URL: 'https://api.example.com',
+};
+```
+
+**设计目的**：
+- 在不重新构建的情况下修改配置
+- 适合多环境部署（开发、测试、生产）
+- 常用场景：修改 API 地址、开关功能等
+
+---
+
+### 5. 启动流程
+
+```
+pnpm dev
+    │
+    ▼
+packages/web/package.json → scripts.dev = "vite --force"
+    │
+    ▼
+vite.config.ts → 读取配置
+    │
+    ▼
+index.html → 加载 config.js → 加载 main.ts
+    │
+    ▼
+main.ts → createApp(App)
+    │
+    ▼
+installI18nOnly() → installPinia() → app.use(router)
+    │
+    ▼
+router.isReady() → app.mount('#app')
+    │
+    ▼
+App.vue → <PromptOptimizerApp />
+    │
+    ▼
+显示完整应用界面
+```
+
+---
+
+### 6. 与其他包的关系
+
+```
+packages/core (核心业务逻辑)
+        │
+        ▼
+packages/ui (Vue 组件库)
+        │
+        ▼
+packages/web (应用入口)  ←── 依赖 ui，仅作为壳子
+packages/desktop (桌面应用壳)
+packages/extension (扩展壳)
+```
+
+**依赖链**：
+- `web → ui → core`
+- 业务逻辑在 `core` 和 `ui` 中
+- `web` 只是启动入口
+
+---
+
+### 7. 常见操作
+
+#### 7.1 启动开发服务器
+
+```bash
+# 在项目根目录执行
+pnpm dev
+# 或指定包执行
+pnpm -F @prompt-optimizer/web dev
+
+# 访问地址：http://localhost:18181
+```
+
+#### 7.2 构建生产版本
+
+```bash
+pnpm build:web
+# 或
+pnpm -F @prompt-optimizer/web build
+
+# 输出到 packages/web/dist/
+```
+
+#### 7.3 添加新的依赖
+
+```bash
+# 在 web 包中添加依赖
+pnpm -F @prompt-optimizer/web add <package-name>
+```
+
+---
+
+### 8. 学习要点总结
+
+1. **职责清晰**：`packages/web` 是应用入口，不是业务逻辑所在
+2. **代码极简**：只有 `main.ts` 和 `App.vue` 两个源文件
+3. **复用设计**：web、desktop、extension 复用同一个 `PromptOptimizerApp`
+4. **Vite 配置**：重点学习 monorepo 环境变量共享和跨包监视
+5. **插件安装顺序**：i18n → Pinia → Router → mount
+
+---
+
+### 9. 下一步学习建议
+
+学习完 `packages/web` 后，建议按以下顺序深入：
+
+1. **`packages/ui`** - 学习 Vue 组件和 composable
+   - 重点：`PromptOptimizerApp.vue` 完整实现
+   - 状态管理：composables 模式
+
+2. **`packages/core`** - 学习核心业务逻辑
+   - 服务层：LLM、模型、提示词、存储等
+
+3. **`packages/desktop`** - 学习 Electron 桌面应用
+   - 主进程、预加载、IPC 通信
+
+---
 
 #### 子包依赖关系与 `workspace:*`
 
-- **分层关系**：  
-  - `@prompt-optimizer/core`：核心业务逻辑库（纯 TS lib）  
-  - `@prompt-optimizer/ui`：UI 组件库，内部依赖 core 并封装成组件/composable  
+- **分层关系**：
+  - `@prompt-optimizer/core`：核心业务逻辑库（纯 TS lib）
+  - `@prompt-optimizer/ui`：UI 组件库，内部依赖 core 并封装成组件/composable
   - `@prompt-optimizer/web`：真正的 Web 应用，主要依赖 ui
-- **为什么 web 不直接依赖 core？**  
-  - 典型链路是：`web → ui → core`，web 通过 ui 暴露的组件和 composable 使用核心能力，减少直接耦合。  
+- **为什么 web 不直接依赖 core？**
+  - 典型链路是：`web → ui → core`，web 通过 ui 暴露的组件和 composable 使用核心能力，减少直接耦合。
   - 只有当 web 代码里出现 `import xxx from '@prompt-optimizer/core'` 时，才需要在 `packages/web/package.json` 里显式声明对 core 的依赖。
-- **`workspace:*` 的含义**（示例：`"@prompt-optimizer/ui": "workspace:*"`）：  
-  - 告诉 pnpm：依赖的是**当前 workspace 中的本地包**，而不是 npm registry 上的远程版本。  
-  - `*` 表示接受本地包的任意版本，发布/对齐版本时由根脚本统一管理。  
+- **`workspace:*` 的含义**（示例：`"@prompt-optimizer/ui": "workspace:*"`）：
+  - 告诉 pnpm：依赖的是**当前 workspace 中的本地包**，而不是 npm registry 上的远程版本。
+  - `*` 表示接受本地包的任意版本，发布/对齐版本时由根脚本统一管理。
   - 还有 `workspace:^`、`workspace:~`、`workspace:1.2.3` 等写法，用来增加版本约束，但本项目中用 `workspace:*` 即可满足内部开发需求。
 
 ---
