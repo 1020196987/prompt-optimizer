@@ -2730,6 +2730,142 @@ packages/mcp-server/
 
 ---
 
+### TypeScript 相关配置文件
+
+本项目的 TypeScript 配置分布在多个位置，以下是核心文件说明：
+
+#### 1. `packages/ui/tsconfig.json`
+
+```json
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "include": ["env.d.ts", "src/**/*", "src/**/*.vue"],
+  "compilerOptions": {
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
+```
+
+| 配置项 | 说明 |
+|--------|------|
+| `extends` | 继承 Vue 官方的 DOM 类型 TS 配置 |
+| `include` | 指定要编译的文件范围 |
+| `composite: true` | 启用项目引用，用于 monorepo |
+| `paths` | 路径别名 `@/*` 映射到 `./src/*` |
+
+#### 2. `packages/ui/env.d.ts`
+
+类型声明文件，内容如下：
+
+```typescript
+/// <reference types="vite/client" />
+
+declare module '*.vue' {
+  import { type DefineComponent } from 'vue'
+  const component: DefineComponent<{}, {}, any>
+  export default component
+}
+
+// E2E 测试辅助变量
+interface Window {
+  __TEST_DB_NAME__?: string
+}
+
+/// <reference path="./src/types/electron.d.ts" />
+```
+
+**三斜线指令详解：**
+
+| 指令 | 作用 |
+|------|------|
+| `/// <reference types="vite/client" />` | 引入 Vite 提供的客户端类型定义（如 `import.meta.env`） |
+| `/// <reference path="..." />` | 引用其他类型声明文件 |
+
+**`declare module '*.vue'`**：让 TypeScript 识别 `.vue` 文件作为模块，导入时获得类型推断。
+
+#### 3. `import.meta.env` - Vite 环境变量
+
+`import.meta.env` 是 **Vite 内置提供的环境变量对象**，由 Vite 在启动时自动注入到客户端代码中。
+
+**内置属性（始终可用）：**
+
+| 属性 | 说明 | 示例值 |
+|------|------|--------|
+| `MODE` | 当前模式 | `'development'` / `'production'` |
+| `DEV` | 是否开发模式 | `true` / `false` |
+| `PROD` | 是否生产模式 | `true` / `false` |
+| `SSR` | 是否服务端渲染 | `true` / `false` |
+| `BASE_URL` | 部署基础路径 | `'/'` |
+
+**自定义属性：**
+
+只有以 `VITE_` 开头的环境变量才会被注入：
+
+```env
+# .env.local
+VITE_API_KEY=abc123
+VITE_API_URL=https://api.example.com
+```
+
+```typescript
+// 代码中访问
+import.meta.env.VITE_API_KEY   // "abc123"
+import.meta.env.VITE_API_URL    // "https://api.example.com"
+```
+
+**注意**：变量名必须以 `VITE_` 开头，否则不会被注入。
+
+**常见用法示例：**
+
+```typescript
+// 条件判断
+if (import.meta.env.DEV) {
+  console.log('开发模式调试信息')
+}
+
+// 动态配置
+const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+
+// 特性开关
+const enableDebug = import.meta.env.VITE_ENABLE_DEBUG === 'true'
+```
+
+**与 `.env` 文件的对应关系：**
+
+```
+.env                # 默认配置
+.env.local          # 本地覆盖（不提交到 Git）
+.env.development    # 开发环境专用
+.env.production     # 生产环境专用
+```
+
+加载优先级（后者覆盖前者）：
+`.env` → `.env.local` → `.env.[mode]`
+
+---
+
+### workspace:* 版本协议
+
+pnpm workspace 特有的版本协议：
+
+| 写法 | 含义 | 使用场景 |
+|------|------|----------|
+| `workspace:*` | 任意版本 | 推荐，用于本地开发 |
+| `workspace:^` | 兼容版本 | 允许小版本升级 |
+| `workspace:~` | 补丁版本 | 允许补丁升级 |
+| `workspace:1.2.3` | 固定版本 | 锁定特定版本 |
+
+示例：
+```json
+"@prompt-optimizer/ui": "workspace:*"
+```
+
+---
+
 ### 根目录其他文件
 
 | 目录/文件 | 说明 |
