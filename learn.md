@@ -3129,7 +3129,7 @@ packages:
 | 作用 | 例子 |
 |------|------|
 | **统一入口脚本** | 在根目录执行 `pnpm run build` → 实际跑的是 `pnpm -r build`，会对**所有**子包执行各自的 `build`；`pnpm run lint`、`pnpm run prettier` 同理。 |
-| **按包名执行** | `pnpm run build:jmtd` → `pnpm --filter @jd/jmt-design build`，只对指定包执行。 |
+| **按包名执行** | `pnpm run build` → `pnpm --filter @my/myPackage build`，只对指定包执行。 |
 | **根自己的依赖** | 根下的 `dependencies` / `devDependencies` 给**根目录**用（例如跑脚本、工具链），不是"强制给每个子包装一份"。 |
 | **install 的起点** | 在根目录执行 `pnpm install` 时，pnpm 会结合 `pnpm-workspace.yaml` 和所有子包的 `package.json`，一次性解析并安装整棵 workspace 的依赖。 |
 
