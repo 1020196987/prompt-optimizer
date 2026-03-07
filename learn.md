@@ -461,6 +461,15 @@ build: {
 
 ## pnpm 运行原理详解
 
+### 概念
+
+pnpm 使用独特的 **内容寻址存储（Content Addressable Store）** 机制管理依赖，核心目录：
+
+| 目录 | 位置 | 作用 |
+|------|------|------|
+| `.pnpm-store` | 项目根目录或全局 | **真实存储** - 下载的包原始文件 |
+| `node_modules/.pnpm` | `node_modules/.pnpm/` | **虚拟存储** - 包的硬链接入口 |
+
 ### 执行流程
 
 ```
@@ -951,6 +960,37 @@ pnpm install vite
     └── 如果没有 → 下载到 ~/.pnpm，再创建硬链接
 ```
 
+#### pnpm store 常用命令
+
+```bash
+# 查看 store 路径
+pnpm store path
+
+# 查看 store 大小
+du -sh $(pnpm store path)
+
+# 清理未使用的包
+pnpm store prune
+
+# 列出 store 中的包
+pnpm store list
+```
+
+#### 本项目 store 情况
+
+| 配置项 | 值 | 说明 |
+|--------|-----|------|
+| 项目 `.npmrc` | 无 `store-dir` | 使用全局 store |
+| 全局 store | `~/Library/pnpm/store/v10` | 当前大小约 6.7G |
+| 项目 `.pnpm-store/` | 空目录 | 无实际用途 |
+
+#### 使用本地 store
+
+在项目 `.npmrc` 中添加：
+```ini
+store-dir=.pnpm-store
+```
+
 ### npm vs pnpm vs npx 对比
 
 | 命令 | 查找顺序 | 是否自动下载 |
@@ -978,6 +1018,98 @@ A:
 | 依赖结构 | 扁平化 | 虚拟化 |
 | 磁盘空间 | 每个项目独立安装 | 全局 store 复用 |
 | .bin 查找 | 不向上查找 | 向上查找 |
+
+### Monorepo 根配置共享模式
+
+#### 什么是根配置共享
+
+在 monorepo 项目中，将基础配置文件（如 `vite.config.ts`、`tsconfig.json`）放在根目录，子包引用并扩展这些基础配置。
+
+#### 本项目结构
+
+```
+my-monorepo/
+├── vite.config.ts              ← 基础配置（getBaseConfig）
+└── packages/
+    ├── my-design/
+    │   └── vite.config.ts     ← 导入并扩展 getBaseConfig
+    ├── my-lib/
+    │   └── vite.config.ts     ← 导入并扩展 getBaseConfig
+    └── my-hooks/
+        └── vite.config.ts     ← 导入并扩展 getBaseConfig
+```
+
+#### 常用模式对比
+
+| 模式 | 说明 | 适用场景 |
+|------|------|----------|
+| **根配置共享** ✓ | 根目录放基础配置，子包引用 | 组件库、工具库 |
+| 独立配置 | 每个子包独立完整配置 | 差异化较大的项目 |
+| 继承覆盖 | 子包可覆盖父配置 | 需要灵活定制的项目 |
+
+#### 优缺点
+
+**优点**：
+- **减少重复**：基础配置写一次，子包复用
+- **统一规范**：所有子包使用相同的构建/测试配置
+- **易维护**：修改一次即可同步到所有子包
+
+**缺点**：
+- **耦合**：子包依赖根配置，独立性降低
+- **灵活性差**：子包无法轻易自定义
+
+#### 典型案例
+
+- Ant Design
+- Fluent UI
+- Vue Core
+- Turborepo 示例项目
+
+### Monorepo 依赖声明 & 路径替换
+
+#### 依赖声明：谁用谁声明
+
+- **原则**：**谁 `import`，谁在自己的 `package.json` 里声明依赖**，根依赖不会自动"算进"子包里。
+- **示例**：如果 `packages/my-lib/rollup.config.mjs` 中使用了 `fs-extra` 和 `rimraf`，需要在 `packages/my-lib/package.json` 的 `devDependencies` 中声明。
+
+#### 路径替换：从源码路径到正式包名
+
+- **问题**：早期代码里可能存在跨包引用源码路径，例如：
+  ```ts
+  import { xxx } from '@myorg/my-tools/src/xxx';
+  ```
+  打包后的产物如果还带着 `@myorg/my-tools/src/...`，使用方项目里找不到这条路径。
+
+- **解决**：在 rollup 里加一个插件 `replaceImportPath`，在 `generateBundle` 阶段对输出代码做字符串替换：
+  ```js
+  function replaceImportPath() {
+    return {
+      name: 'replaceImportPath',
+      generateBundle(_, chunkInfo) {
+        for (const name of Object.keys(chunkInfo)) {
+          const rawCode = chunkInfo[name].code;
+          const reg1 = /@myorg\/my-tools\/src[^'"]*/g;
+          const reg2 = /@myorg\/my-hooks\/src[^'"]*/g;
+          const reg3 = /@myorg\/my-design\/src[^'"]*/g;
+
+          const replacedCode = rawCode
+            ?.replace(reg1, '@myorg/my-tools')
+            ?.replace(reg2, '@myorg/my-hooks')
+            ?.replace(reg3, '@myorg/my-design');
+
+          chunkInfo[name].code = replacedCode?.replace(
+            /'react\/jsx-runtime'/g,
+            "'react/jsx-runtime.js'",
+          );
+        }
+      },
+    };
+  }
+  ```
+
+- **含义**：
+  - 打包时自动把内部源码路径替换成对外暴露的 npm 包名（`@myorg/my-tools` 等）
+  - 是一种"迁移期过渡方案"：当源码里还残留 `@myorg/my-tools/src/...` 这类写法时，通过构建阶段修正产物，保证对外包可以正常使用
 
 ---
 
@@ -2864,6 +2996,104 @@ pnpm workspace 特有的版本协议：
 "@prompt-optimizer/ui": "workspace:*"
 ```
 
+#### pnpm -r 批量操作
+
+`-r` 是 `--recursive` 的缩写，**在所有 workspace 子包中执行命令**：
+
+```bash
+# 在所有子包中运行 build
+pnpm -r build
+
+# 在所有子包中运行 test
+pnpm -r test
+
+# 过滤特定包，只对目标包执行
+pnpm -r --filter my-lib build
+```
+
+#### 版本管理工具
+
+| 工具 | 功能 |
+|------|------|
+| **standard-version** | 基于 commit 历史自动生成版本号（本项目使用） |
+| **lerna** | 统一管理 monorepo 版本 |
+| **changesets** | 独立版本 + 可选统一 |
+| **rush** | Microsoft 的 monorepo 工具 |
+
+---
+
+### npm publish 发布配置
+
+#### 自动包含的文件
+
+npm publish **默认自动包含**以下文件，无需配置：
+
+| 文件 | 说明 |
+|------|------|
+| `package.json` | 必发 |
+| `README.md` | 根目录的会发布 |
+| `CHANGELOG.md` | 如果存在 |
+| `LICENSE` | 许可证文件 |
+
+#### 需要手动指定的文件
+
+通过 `package.json` 的 `files` 字段指定**额外需要包含**的文件：
+
+```json
+{
+    "files": [
+        "dist",      // 构建产物
+        "lib",       // 另一种构建产物目录
+        "es",        // ESM 格式输出
+        "types"      // TypeScript 类型定义
+    ]
+}
+```
+
+#### 入口文件配置
+
+```json
+{
+    "name": "@myorg/my-lib",
+    "main": "./dist/index.umd.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/types/index.d.ts",
+    "files": ["dist"]
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `main` | CommonJS 入口 |
+| `module` | ESM 入口 |
+| `types` | 类型定义 |
+
+#### 排除文件
+
+两种方式：
+
+1. **`.npmignore`**：类似于 `.gitignore`，排除不需要发布的文件
+   ```
+   # .npmignore 示例
+   src/
+   test/
+   .git/
+   node_modules/
+   *.md（但保留 README.md）
+   ```
+
+2. **`files` 字段白名单**：明确指定要发布的文件，其他自动忽略
+   - 不在 `files` 中的文件不会发布（如 `src/`、`node_modules/`）
+
+#### 验证发布内容
+
+```bash
+# 本地查看发布会包含哪些文件
+npm pack --dry-run
+# 或
+pnpm pack --dry-run
+```
+
 ---
 
 ### 根目录其他文件
@@ -2874,3 +3104,41 @@ pnpm workspace 特有的版本协议：
 | `docs/` | 项目文档 |
 | `images/` | 图片资源 |
 | `.github/` | GitHub Actions 工作流 |
+
+---
+
+## 根目录 package.json 与 workspace 管理
+
+### 谁定义"哪些是 workspace 里的包"？
+
+在你这个项目里，**不是**根目录 `package.json`，而是 **`pnpm-workspace.yaml`**：
+
+```yaml
+packages:
+  - 'packages/*'
+```
+
+也就是说：`packages/` 下的每一个子目录（如 `core`、`ui`、`web`、`extension`、`desktop`、`mcp-server` 等）都是 workspace 里的一分子，这是 pnpm 根据这个文件认出来的。
+
+---
+
+### 根目录 package.json 在"管"什么？
+
+根目录的 `package.json` 是**整棵 monorepo 的"指挥中心"**，主要体现在：
+
+| 作用 | 例子 |
+|------|------|
+| **统一入口脚本** | 在根目录执行 `pnpm run build` → 实际跑的是 `pnpm -r build`，会对**所有**子包执行各自的 `build`；`pnpm run lint`、`pnpm run prettier` 同理。 |
+| **按包名执行** | `pnpm run build:jmtd` → `pnpm --filter @jd/jmt-design build`，只对指定包执行。 |
+| **根自己的依赖** | 根下的 `dependencies` / `devDependencies` 给**根目录**用（例如跑脚本、工具链），不是"强制给每个子包装一份"。 |
+| **install 的起点** | 在根目录执行 `pnpm install` 时，pnpm 会结合 `pnpm-workspace.yaml` 和所有子包的 `package.json`，一次性解析并安装整棵 workspace 的依赖。 |
+
+---
+
+### 总结
+
+**"管整个 workspace"** = 根目录的 `package.json` 提供**整仓的统一脚本入口**和 **install 的根节点**，并定义根目录自己需要的依赖；
+
+**"有哪些包属于 workspace"** 则由 `pnpm-workspace.yaml` 决定。
+
+两者一起，才构成"整个 workspace 怎么被管"。
